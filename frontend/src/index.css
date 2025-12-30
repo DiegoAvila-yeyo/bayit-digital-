@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* * ESTILOS MÍNIMOS RECOMENDADOS PARA REACT/TAILWIND
+* Eliminamos los estilos por defecto de Vite que centran el body 
+* y definen colores en conflicto.
+*/
+
+:root {
+  /* Mantén la fuente si quieres, pero borra los colores de fondo/texto */
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* IMPORTANTE: Elimina 'background-color: #242424;' y 'color: rgba(255, 255, 255, 0.87);' */
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  /* Restablece el body a un estado normal */
+  margin: 0;
+  min-width: 320px;
+  /* Elimina: display: flex; place-items: center; min-height: 100vh; */
+}
+
+/* * OPCIONAL: Puedes mantener estilos para elementos que no tienen clases Tailwind 
+* como <h1>, <a>, etc., pero para un clon de Udemy es mejor usar clases.
+*/
+
+/* Hacemos que la página ocupe todo el alto, confiando en Tailwind (min-h-screen) */
+#root {
+  min-height: 100vh;
+  /* El contenido de React se renderiza aquí */
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes fadeInSlide {
+  0% { opacity: 0; transform: translateX(20px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.animate-fadeInSlide {
+  animation: fadeInSlide 0.4s ease-out forwards;
+}
+
+.animate-popIn {
+  animation: popIn 0.2s ease-out forwards;
+}
