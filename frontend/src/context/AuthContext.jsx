@@ -54,24 +54,25 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const login = (userData) => {
-    // Si el backend devuelve { token, user: { ... } }
+// AuthContext.js (Asegúrate de que la función login quede así)
+const login = (userData) => {
+    // Si el backend devuelve { token, user: { ... } } o solo el objeto usuario
     const token = userData.token;
     const infoUsuario = userData.user || userData; 
 
     if (token) {
         localStorage.setItem('token', token);
-        setUser(infoUsuario);
+        // Nos aseguramos de que infoUsuario contenga el role antes de hacer setUser
+        setUser(infoUsuario); 
         return true;
     }
-    // Caso especial para registro (donde no hay token aún porque falta verificar)
+    
     if (infoUsuario) {
         setUser(infoUsuario);
         return true;
     }
     return false;
-};
-    
+}; 
 
     const logout = () => {
         localStorage.removeItem('token');

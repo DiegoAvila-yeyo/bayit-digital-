@@ -9,11 +9,9 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
     const [currentPage, setCurrentPage] = useState(0);
     const [cardsPerPage, setCardsPerPage] = useState(3);
 
-    // 1. Cargar los cursos desde el Backend (Ruta real de tu API)
     useEffect(() => {
         const fetchCourses = async () => {
             try {
-                // Asegúrate de que tu backend esté corriendo en el puerto 5000
                 const response = await axios.get('http://localhost:5000/api/courses');
                 setCourses(response.data);
                 setLoading(false);
@@ -25,7 +23,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
         fetchCourses();
     }, []);
 
-    // 2. Lógica de Responsive (Ajuste de visibilidad)
     useEffect(() => {
         const updateCardsPerPage = () => {
             if (window.innerWidth < 640) setCardsPerPage(1);
@@ -58,8 +55,8 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
     };
 
     if (loading) return (
-        <div className="py-20 text-center animate-pulse">
-            <p className="text-xl font-medium text-gray-500">Conectando con la biblioteca espiritual...</p>
+        <div className="py-20 text-center animate-pulse text-gray-500 font-medium">
+            Conectando con la biblioteca espiritual...
         </div>
     );
 
@@ -68,7 +65,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row justify-between lg:space-x-12 lg:items-start"> 
                     
-                    {/* TEXTO LATERAL */}
                     <div className="lg:w-1/3 mb-8 lg:mb-0 lg:pr-8 flex-shrink-0">
                         <h2 className="text-4xl font-extrabold text-gray-900 mb-4 leading-tight">
                             Encuentra tu próximo <br /> desafío espiritual
@@ -77,7 +73,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                             Explora nuestra biblioteca dinámica. Cursos reales, maestros reales, ahora en la nube.
                         </p>
                         <div className="hidden lg:flex space-x-3">
-                            {/* Reutilizamos los botones aquí para diseño de escritorio */}
                             <button 
                                 onClick={() => handleScroll('prev')}
                                 disabled={currentPage === 0}
@@ -97,7 +92,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                         </div>
                     </div>
                     
-                    {/* CONTENEDOR DEL CARRUSEL */}
                     <div className="lg:w-2/3 relative flex flex-col items-center">
                         <div 
                             ref={scrollRef} 
@@ -107,27 +101,26 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                             {courses.map((curso) => (
                                 <Link 
                                     key={curso._id}
-                                    to={`/curso/${curso.slug}`} 
+                                    to={`/curso/${curso._id}`} 
                                     className="flex-shrink-0 w-full sm:w-[calc(50%-8px)] lg:w-[calc(33.333%-10.66px)] h-80 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden cursor-pointer transform hover:scale-[1.02] transition-all duration-300 relative group"
                                     style={{ scrollSnapAlign: 'start', zIndex: 10 }}
                                 >
-                                    {/* Imagen con Overlay */}
                                     <div className="h-full w-full">
                                         <img 
-                                            src={curso.image} 
+                                            src={curso.thumbnail || curso.image || 'https://via.placeholder.com/400x225'} 
                                             alt={curso.title} 
                                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
                                     </div>
 
-                                    {/* Contenido sobre la imagen */}
                                     <div className="absolute inset-x-0 bottom-0 text-white p-5"> 
                                         <span 
                                             className="inline-block px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2"
                                             style={{ backgroundColor: PRIMARY_COLOR }}
                                         >
-                                            {curso.category || 'Curso'}
+                                            {/* Aquí usamos el nombre de la categoría del objeto */}
+                                            {curso.category?.name || 'Curso'}
                                         </span>
                                         <h3 className="text-xl font-bold line-clamp-2 mb-2 leading-tight">
                                             {curso.title}
@@ -135,7 +128,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                                         <div className="flex justify-between items-center mt-4 border-t border-white/20 pt-3"> 
                                             <span className="text-xs font-medium text-gray-300 flex items-center">
                                                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                                {curso.level}
+                                                {curso.level || 'General'}
                                             </span>
                                             <span className="font-bold text-xl">${curso.price}</span>
                                         </div>
@@ -143,12 +136,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                                 </Link>
                             ))}
                         </div> 
-
-                        {/* CONTROLES MÓVILES (Solo visibles en pantalla pequeña) */}
-                        <div className="flex lg:hidden items-center justify-center mt-4 space-x-4">
-                            <button onClick={() => handleScroll('prev')} className="p-2 border rounded-full" style={{ color: PRIMARY_COLOR }}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                            <button onClick={() => handleScroll('next')} className="p-2 border rounded-full text-white" style={{ backgroundColor: PRIMARY_COLOR }}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                        </div>
                     </div>
                 </div>
             </div>

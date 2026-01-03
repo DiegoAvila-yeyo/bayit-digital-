@@ -16,7 +16,6 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        // Eliminamos required: true para permitir usuarios de Google
         minlength: [8, 'La contraseña debe tener al menos 8 caracteres'],
         maxlength: [100, 'La contraseña no puede exceder los 100 caracteres']
     },
@@ -45,15 +44,22 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Middleware corregido
+// --- MIDDLEWARE PARA ENCRIPTAR (Corregido: userSchema con minúscula) ---
 userSchema.pre('save', async function() {
-    if (!this.isModified('password') || !this.password) return;
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    if (!this.isModified('password')) return;
+
+    try {
+        const salt = await bcrypt.genSalt(10);
+        this.password = await bcrypt.hash(this.password, salt);
+    } catch (error) {
+        throw new Error('Error al encriptar contraseña');
+    }
 });
 
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    if (!this.password) return false; // Por si es usuario de Google sin clave
+// --- MÉTODO PARA COMPARAR PASSWORDS ---
+// Cambiamos 'comparePassword' por 'matchPassword' para que coincida con tu controlador
+userSchema.methods.matchPassword = async function(candidatePassword) {
+    if (!this.password) return false; 
     return await bcrypt.compare(candidatePassword, this.password);
 };
 

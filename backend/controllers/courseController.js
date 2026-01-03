@@ -1,20 +1,49 @@
 import Course from '../models/Course.js';
 
-export const getCourses = async (req, res) => {
-  try {
-    const courses = await Course.find();
-    res.status(200).json(courses);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener cursos", error: error.message });
-  }
+export const createCourse = async (req, res) => {
+    try {
+        const { title, description, price, category, videoUrl } = req.body;
+
+        const course = new Course({
+            title,
+            description,
+            price,
+            category,
+            videoUrl,
+            teacher: req.user._id // Obtenemos el ID del usuario del token
+        });
+
+        const savedCourse = await course.save();
+        res.status(201).json(savedCourse);
+    } catch (error) {
+        res.status(400).json({ message: 'Error al crear el curso', error: error.message });
+    }
 };
 
-export const getCourseBySlug = async (req, res) => {
-  try {
-    const course = await Course.findOne({ slug: req.params.slug });
-    if (!course) return res.status(404).json({ message: "Curso no encontrado" });
-    res.status(200).json(course);
-  } catch (error) {
-    res.status(500).json({ message: "Error al obtener el curso", error: error.message });
-  }
+export const getCourses = async (req, res) => {
+    try {
+        // .populate trae la info del maestro y la categoría, no solo el ID
+        const courses = await Course.find()
+            .populate('teacher', 'name email')
+            .populate('category', 'name');
+        res.json(courses);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+// Agrega esto al final de courseController.js
+export const getCourseById = async (req, res) => {
+    try {
+        const course = await Course.findById(req.params.id)
+            .populate('teacher', 'name')
+            .populate('category', 'name');
+
+        if (course) {
+            res.json(course);
+        } else {
+            res.status(404).json({ message: 'Curso no encontrado' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Error en el servidor', error: error.message });
+    }
 };
