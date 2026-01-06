@@ -1,41 +1,43 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
-import { signInWithPopup } from 'firebase/auth'; // NUEVO
-import { auth, googleProvider } from '../firebase'; // NUEVO
+import { signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../firebase';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    // 1. Inicializamos el estado buscando en localStorage para que no se pierda al refrescar
+    const [user, setUser] = useState(() => {
+        const savedUser = localStorage.getItem('userInfo');
+        return savedUser ? JSON.parse(savedUser) : null;
+    });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const checkUserLoggedIn = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                if (token) {
+            const token = localStorage.getItem('token');
+            if (token && !user) {
+                try {
                     const res = await axios.get('http://localhost:5000/api/auth/profile', {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     setUser(res.data);
+                    localStorage.setItem('userInfo', JSON.stringify(res.data));
+                } catch (error) {
+                    logout(); // Si el token expiró, limpiamos todo
                 }
-            } catch (error) {
-                localStorage.removeItem('token');
-            } finally {
-                setLoading(false);
             }
+            setLoading(false);
         };
         checkUserLoggedIn();
-    }, []);
+    }, [user]);
 
-    // --- NUEVA FUNCIÓN DE GOOGLE ---
     const loginWithGoogle = async () => {
         try {
             const result = await signInWithPopup(auth, googleProvider);
             const { displayName, email, photoURL, uid } = result.user;
 
-            // Enviamos los datos al endpoint socialLogin de tu backend
             const res = await axios.post('http://localhost:5000/api/auth/social-login', {
                 name: displayName,
                 email: email,
@@ -43,9 +45,14 @@ export const AuthProvider = ({ children }) => {
                 uid: uid
             });
 
-            localStorage.setItem('token', res.data.token);
-            setUser(res.data.user);
-            toast.success(`¡Bienvenido, ${res.data.user.name}!`);
+            const userData = res.data.user;
+            const token = res.data.token;
+
+            localStorage.setItem('token', token);
+            localStorage.setItem('userInfo', JSON.stringify(userData));
+            
+            setUser(userData);
+            toast.success(`¡Bienvenido, ${userData.name}!`);
             return true;
         } catch (error) {
             console.error("Error en Google Login:", error);
@@ -54,32 +61,25 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-// AuthContext.js (Asegúrate de que la función login quede así)
-const login = (userData) => {
-    // Si el backend devuelve { token, user: { ... } } o solo el objeto usuario
-    const token = userData.token;
-    const infoUsuario = userData.user || userData; 
+    const login = (userData) => {
+        const token = userData.token;
+        const infoUsuario = userData.user || userData;
 
-    if (token) {
-        localStorage.setItem('token', token);
-        // Nos aseguramos de que infoUsuario contenga el role antes de hacer setUser
-        setUser(infoUsuario); 
-        return true;
-    }
-    
-    if (infoUsuario) {
-        setUser(infoUsuario);
-        return true;
-    }
-    return false;
-}; 
+        if (token) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('userInfo', JSON.stringify(infoUsuario));
+            setUser(infoUsuario);
+            return true;
+        }
+        return false;
+    };
 
     const logout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('userInfo');
         setUser(null);
         toast("Sesión cerrada", { icon: '👋' });
     };
-
 
     return (
         <AuthContext.Provider value={{ user, setUser, login, loginWithGoogle, logout, loading }}>

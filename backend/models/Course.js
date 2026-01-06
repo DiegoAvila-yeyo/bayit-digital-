@@ -1,4 +1,13 @@
 import mongoose from 'mongoose';
+import slugify from 'slugify';
+
+const lessonSchema = new mongoose.Schema({
+    title: { type: String, required: true },
+    videoUrl: { type: String, required: true },
+    section: { type: String, default: 'General' },
+    duration: { type: String, default: "0:00" },
+    order: { type: Number, default: 0 }
+});
 
 const courseSchema = new mongoose.Schema({
     title: {
@@ -6,6 +15,10 @@ const courseSchema = new mongoose.Schema({
         required: [true, 'El título es obligatorio'],
         trim: true
     },
+    slug: { 
+        type: String, 
+        unique: true 
+    }, 
     description: {
         type: String,
         required: [true, 'La descripción es obligatoria']
@@ -15,40 +28,37 @@ const courseSchema = new mongoose.Schema({
         required: [true, 'El precio es obligatorio'],
         default: 0
     },
-    // Conexión con el Maestro (User)
+    lessons: [lessonSchema], 
     teacher: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true
     },
-    // Conexión con la Categoría
     category: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Category',
         required: true
     },
-    videoUrl: {
+    thumbnail: {
         type: String,
-        required: [true, 'https://www.youtube.com/watch?v=5d0P2ZVCWcg']
-    },
-    duration: {
-        type: String, // Ejemplo: "12:45"
-        default: "0:00"
+        default: '/uploads/default-course.jpg' // Ruta local por defecto
     },
     level: {
         type: String,
         enum: ['Básico', 'Intermedio', 'Avanzado'],
         default: 'Básico'
     },
-    thumbnail: {
-        type: String, // Imagen de portada del curso
-        default: 'https://via.placeholder.com/400x225'
-    },
     published: {
         type: Boolean,
         default: false
     }
 }, { timestamps: true });
+
+// CORRECCIÓN AQUÍ: Quitamos el parámetro 'next' para evitar el TypeError
+courseSchema.pre('save', async function() {
+    if (!this.isModified('title')) return;
+    this.slug = slugify(this.title, { lower: true, strict: true });
+});
 
 const Course = mongoose.model('Course', courseSchema);
 export default Course;

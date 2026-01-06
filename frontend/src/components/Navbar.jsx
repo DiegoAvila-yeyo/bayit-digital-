@@ -10,7 +10,7 @@ import {
   MagnifyingGlassIcon,
   HeartIcon,
   ListBulletIcon,
-  PlusCircleIcon, // Icono para subir cursos
+  PlusCircleIcon,
   UserIcon
 } from '@heroicons/react/24/outline';
 
@@ -20,7 +20,6 @@ const Navbar = ({ PRIMARY_COLOR }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [categories, setCategories] = useState([]);
 
-    // Carga de categorías desde el Backend
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -45,12 +44,12 @@ const Navbar = ({ PRIMARY_COLOR }) => {
         <nav className="bg-white shadow-sm py-2 px-4 md:px-8 sticky top-0 z-50 w-full border-b border-gray-100">
             <div className="w-full flex items-center justify-between gap-4 md:gap-8">
                 
-                {/* IZQUIERDA: LOGO Y CATEGORÍAS */}
                 <div className="flex items-center gap-6">
                     <Link to="/" className="text-xl md:text-2xl font-bold tracking-tighter shrink-0" style={{ color: PRIMARY_COLOR }}>
                         BAYIT<span className="text-gray-900 hidden xs:inline"> DIGITAL</span>
                     </Link>
 
+                    {/* MENÚ DE CATEGORÍAS DINÁMICO */}
                     <div className="hidden lg:block relative group py-4">
                         <button className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900 transition gap-1 outline-none">
                             <ListBulletIcon className="h-5 w-5" />
@@ -64,7 +63,8 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                             {categories.map((cat) => (
                                 <Link 
                                     key={cat._id} 
-                                    to={`/cursos/${cat.slug}`}
+                                        // Usamos backticks `` para insertar el slug dinámicamente
+                                    to={`/cursos/${cat.slug || cat.name.toLowerCase().replace(/ /g, '-')}`}
                                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition font-medium"
                                 >
                                     {cat.name}
@@ -74,7 +74,6 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                     </div>
                 </div>
 
-                {/* CENTRO: BUSCADOR */}
                 <div className="flex-1 max-w-2xl relative group">
                     <input 
                         type="text" 
@@ -84,7 +83,6 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                     <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3.5 top-2.5" />
                 </div>
 
-                {/* DERECHA: ACCIONES */}
                 <div className="flex items-center space-x-4 md:space-x-6 shrink-0">
                     <Link to="/donate" className="flex items-center text-gray-600 hover:text-red-500 transition text-sm font-medium">
                         <HeartIcon className="h-5 w-5 text-red-400 mr-1" />
@@ -107,7 +105,6 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                                 )}
                             </Link>
 
-                            {/* PERFIL Y MENÚ DESPLEGABLE */}
                             <div className="relative">
                                 <button 
                                     onClick={() => setIsMenuOpen(!isMenuOpen)} 
@@ -126,9 +123,7 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                                 {isMenuOpen && (
                                     <>
                                         <div className="fixed inset-0 z-[-1]" onClick={() => setIsMenuOpen(false)}></div>
-                                        <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100] animate-in fade-in slide-in-from-top-2 duration-200">
-                                            
-                                            {/* Info Usuario */}
+                                        <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100]">
                                             <div className="px-4 py-3 border-b border-gray-100 flex items-center space-x-3">
                                                 <div className="shrink-0">
                                                     <img src={user.profilePicture || "https://via.placeholder.com/150"} className="h-10 w-10 rounded-full object-cover" alt="Avatar" />
@@ -140,7 +135,6 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                                             </div>
 
                                             <div className="py-2">
-                                                {/* SECCIÓN PARA MAESTROS / ADMINS */}
                                                 {(user.role === 'admin' || user.role === 'teacher') && (
                                                     <>
                                                         <Link 

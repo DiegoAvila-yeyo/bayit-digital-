@@ -5,14 +5,18 @@ import dotenv from 'dotenv';
 import conectarDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js'; 
 import courseRoutes from './routes/courseRoutes.js';
-import categoryRoutes from './routes/categoryRoutes.js'; 
+import categoryRoutes from './routes/categoryRoutes.js';
+import path from 'path'; 
 
 dotenv.config();
 const app = express();
+const __dirname = path.resolve();
 
 conectarDB();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Permite que el frontend vea tus videos/fotos
+}));
 app.use(express.json());
 
 app.use(cors({
@@ -21,10 +25,13 @@ app.use(cors({
   credentials: true
 }));
 
+app.use('/uploads', express.static('uploads'));
+
 // --- DEFINICIÓN DE RUTAS CORREGIDA ---
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/courses', courseRoutes); // SOLO UNA VEZ
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
 
 app.get('/', (req, res) => {
   res.send('Servidor funcionando correctamente 🚀');
