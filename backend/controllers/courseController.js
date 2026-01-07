@@ -71,29 +71,33 @@ export const createCourse = async (req, res) => {
 // Obtener todos los cursos
 export const getCourses = async (req, res) => {
     try {
-        const { category } = req.query; // Aquí recibimos el slug (ej: "programacion")
+        const { category, search } = req.query; 
         let query = {};
 
+        // LÓGICA DE BÚSQUEDA POR TEXTO (Global)
+        if (search) {
+            query.title = { $regex: search, $options: 'i' }; // 'i' es para case-insensitive
+        }
+
+        // LÓGICA DE CATEGORÍA (Se mantiene la que ya teníamos)
         if (category) {
-            // 1. Buscamos la categoría por su slug
             const foundCategory = await Category.findOne({ 
                 $or: [
                     { slug: category },
-                    { name: new RegExp(category, 'i') } // Por si acaso no tienes slugs
+                    { name: new RegExp(category, 'i') }
                 ]
             });
 
             if (foundCategory) {
-                // 2. Si existe, filtramos los cursos por ese ID de categoría
-                query = { category: foundCategory._id };
-            } else {
-                // Si no existe la categoría, devolvemos vacío directamente
+                query.category = foundCategory._id;
+            } else if (!search) { 
+                // Si no hay categoría Y no hay búsqueda, devolvemos vacío
                 return res.json([]);
             }
         }
 
         const courses = await Course.find(query)
-            .populate('teacher', 'name email')
+            .populate('teacher', 'name email profilePicture')
             .populate('category', 'name slug');
             
         res.json(courses);

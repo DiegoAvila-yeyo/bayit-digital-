@@ -14,6 +14,7 @@ import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
 import PrivateRoute from './components/PrivateRoute';
 import { Toaster } from 'react-hot-toast';
+import { SearchResultsPage } from './pages/SearchResultsPage';
 
 import MyLearning from './pages/MyLearning'; 
 import EditProfile from './pages/EditProfile'; 
@@ -45,7 +46,7 @@ function App() {
             <Route path="/register" element={<Register PRIMARY_COLOR={PRIMARY_COLOR} />} />
             <Route path="/verify-email" element={<VerifyEmail PRIMARY_COLOR={PRIMARY_COLOR} />} />
             <Route path="/curso/:id" element={<CourseDetail PRIMARY_COLOR={PRIMARY_COLOR} />} />
-            
+            <Route path="/buscar" element={<SearchResultsPage PRIMARY_COLOR={PRIMARY_COLOR} />} />
             {/* RUTA DINÁMICA DE CATEGORÍAS */}
             <Route path="/cursos/:categorySlug" element={<CategoryPage PRIMARY_COLOR={PRIMARY_COLOR} />} />
 
