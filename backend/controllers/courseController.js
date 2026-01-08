@@ -64,17 +64,12 @@ export const createCourse = async (req, res) => {
     }
 };
 
-// ... los demás métodos (getCourses, getCourseById) siguen igual
-
-// ... (getCourseById y getCourses se mantienen igual)
-
 // Obtener todos los cursos
 export const getCourses = async (req, res) => {
     try {
         const { category, search } = req.query; 
         let query = {};
 
-        // LÓGICA DE BÚSQUEDA POR TEXTO (Global)
         if (search) {
             query.title = { $regex: search, $options: 'i' }; // 'i' es para case-insensitive
         }

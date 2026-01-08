@@ -22,9 +22,12 @@ const Login = ({ PRIMARY_COLOR }) => {
 
         try {
             const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
-            login(res.data); 
-            toast.success(`¡Bienvenido de nuevo!`);
-            navigate('/'); 
+            const success = await login(res.data); 
+
+            if (success) {
+                toast.success(`¡Bienvenido de nuevo!`);
+                navigate('/');
+            }  
         } catch (err) {
             toast.error(err.response?.data?.message || 'Error al iniciar sesión');
         }

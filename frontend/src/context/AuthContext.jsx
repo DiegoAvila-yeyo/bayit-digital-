@@ -14,24 +14,28 @@ export const AuthProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const checkUserLoggedIn = async () => {
-            const token = localStorage.getItem('token');
-            if (token && !user) {
-                try {
-                    const res = await axios.get('http://localhost:5000/api/auth/profile', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-                    setUser(res.data);
-                    localStorage.setItem('userInfo', JSON.stringify(res.data));
-                } catch (error) {
-                    logout(); // Si el token expiró, limpiamos todo
-                }
+// Dentro de AuthContext.js
+useEffect(() => {
+    const fetchUser = async () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            try {
+                const res = await axios.get('http://localhost:5000/api/users/me', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                // Sincronizamos estado y storage con datos frescos
+                setUser({ ...res.data }); 
+                localStorage.setItem('userInfo', JSON.stringify(res.data));
+            } catch (error) {
+                logout(); 
             }
-            setLoading(false);
-        };
-        checkUserLoggedIn();
-    }, [user]);
+        }
+        setLoading(false);
+    };
+    fetchUser();
+}, []);
+// En el método login, asegúrate de guardar la info completa
+
 
     const loginWithGoogle = async () => {
         try {
@@ -61,19 +65,31 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const login = (userData) => {
-        const token = userData.token;
-        const infoUsuario = userData.user || userData;
-
-        if (token) {
-            localStorage.setItem('token', token);
-            localStorage.setItem('userInfo', JSON.stringify(infoUsuario));
-            setUser(infoUsuario);
+// Sustituye tu función login por esta:
+const login = async (userData) => {
+    const token = userData.token;
+    
+    if (token) {
+        localStorage.setItem('token', token);
+        
+        try {
+            // Generalizamos: No importa si es admin o user, 
+            // pedimos los datos completos al servidor inmediatamente
+            const res = await axios.get('http://localhost:5000/api/users/me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            const datosCompletos = res.data;
+            localStorage.setItem('userInfo', JSON.stringify(datosCompletos));
+            setUser(datosCompletos);
             return true;
+        } catch (error) {
+            console.error("Error al obtener datos tras login", error);
+            return false;
         }
-        return false;
-    };
-
+    }
+    return false;
+};
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('userInfo');

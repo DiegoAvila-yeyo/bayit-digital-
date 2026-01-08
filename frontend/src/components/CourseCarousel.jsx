@@ -1,8 +1,10 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
 export const CourseCarousel = ({ PRIMARY_COLOR }) => {
+    const { user } = useContext(AuthContext); 
     const scrollRef = useRef(null);
     const [courses, setCourses] = useState([]); 
     const [loading, setLoading] = useState(true);
@@ -13,7 +15,20 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
         const fetchCourses = async () => {
             try {
                 const response = await axios.get('http://localhost:5000/api/courses');
-                setCourses(response.data);
+                let allCourses = response.data;
+
+                // --- FILTRO: OCULTAR CURSOS YA COMPRADOS ---
+                if (user && user.purchasedCourses) {
+                    allCourses = allCourses.filter(course => 
+                        !user.purchasedCourses.some(pc => {
+                            const purchasedId = pc.courseId?._id || pc.courseId;
+                            return purchasedId === course._id;
+                        })
+                    );
+                }
+                // ------------------------------------------
+
+                setCourses(allCourses);
                 setLoading(false);
             } catch (error) {
                 console.error("Error cargando cursos en el carrusel:", error);
@@ -21,7 +36,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
             }
         };
         fetchCourses();
-    }, []);
+    }, [user]);
 
     useEffect(() => {
         const updateCardsPerPage = () => {
@@ -34,7 +49,15 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
         return () => window.removeEventListener('resize', updateCardsPerPage);
     }, []);
 
+    // Cálculo dinámico de páginas
     const totalPages = Math.ceil(courses.length / cardsPerPage);
+
+    // Ajuste de seguridad: si la página actual queda fuera de rango tras el filtrado
+    useEffect(() => {
+        if (currentPage >= totalPages && totalPages > 0) {
+            setCurrentPage(totalPages - 1);
+        }
+    }, [totalPages, currentPage]);
 
     const handleScroll = (direction) => {
         if (!scrollRef.current) return;
@@ -60,6 +83,9 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
         </div>
     );
 
+    // Si no hay cursos disponibles (ya compró todos o no hay stock), no mostramos nada
+    if (courses.length === 0) return null; 
+
     return (
         <section className="py-16 sm:py-24 bg-white">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -72,24 +98,27 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                         <p className="text-gray-700 text-lg mb-6"> 
                             Explora nuestra biblioteca dinámica. Cursos reales, maestros reales, ahora en la nube.
                         </p>
-                        <div className="hidden lg:flex space-x-3">
-                            <button 
-                                onClick={() => handleScroll('prev')}
-                                disabled={currentPage === 0}
-                                className={`p-3 border rounded-full transition ${currentPage === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                                style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
-                            >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            </button>
-                            <button 
-                                onClick={() => handleScroll('next')}
-                                disabled={currentPage === totalPages - 1}
-                                className={`p-3 border rounded-full transition ${currentPage === totalPages - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-                                style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, color: 'white' }}
-                            >
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                            </button>
-                        </div>
+                        
+                        {totalPages > 1 && (
+                            <div className="hidden lg:flex space-x-3">
+                                <button 
+                                    onClick={() => handleScroll('prev')}
+                                    disabled={currentPage === 0}
+                                    className={`p-3 border rounded-full transition ${currentPage === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                                    style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </button>
+                                <button 
+                                    onClick={() => handleScroll('next')}
+                                    disabled={currentPage === totalPages - 1}
+                                    className={`p-3 border rounded-full transition ${currentPage === totalPages - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                                    style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, color: 'white' }}
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                </button>
+                            </div>
+                        )}
                     </div>
                     
                     <div className="lg:w-2/3 relative flex flex-col items-center">
@@ -107,7 +136,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                                 >
                                     <div className="h-full w-full">
                                         <img 
-                                            src={curso.thumbnail || curso.image || 'https://via.placeholder.com/400x225'} 
+                                            src={curso.thumbnail?.startsWith('http') ? curso.thumbnail : `http://localhost:5000${curso.thumbnail}`} 
                                             alt={curso.title} 
                                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                         />
@@ -119,7 +148,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR }) => {
                                             className="inline-block px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider mb-2"
                                             style={{ backgroundColor: PRIMARY_COLOR }}
                                         >
-                                            {/* Aquí usamos el nombre de la categoría del objeto */}
                                             {curso.category?.name || 'Curso'}
                                         </span>
                                         <h3 className="text-xl font-bold line-clamp-2 mb-2 leading-tight">

@@ -6,6 +6,7 @@ import conectarDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js'; 
 import courseRoutes from './routes/courseRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import path from 'path'; 
 
 dotenv.config();
@@ -31,7 +32,8 @@ app.use('/uploads', express.static('uploads'));
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/courses', courseRoutes); // SOLO UNA VEZ
-app.use('/uploads', express.static(path.join(__dirname, '/uploads')));
+app.use('/uploads', express.static('uploads'));
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => {
   res.send('Servidor funcionando correctamente 🚀');

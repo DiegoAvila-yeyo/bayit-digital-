@@ -7,7 +7,80 @@ const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'clave_temporal', { expiresIn: '30d' });
 };
 
+const sendUserResponse = async (user, res) => {
+    const populatedUser = await User.findById(user._id)
+        .select('-password')
+        .populate({
+            path: 'purchasedCourses.courseId',
+            populate: { path: 'category', select: 'name' }
+        });
+
+    res.json({
+        _id: populatedUser._id,
+        name: populatedUser.name,
+        email: populatedUser.email,
+        role: populatedUser.role,
+        profilePicture: populatedUser.profilePicture,
+        isVerified: populatedUser.isVerified,
+        streak: populatedUser.streak,
+        purchasedCourses: populatedUser.purchasedCourses, // <-- AQUÍ ESTÁ LA MAGIA
+        token: generateToken(populatedUser._id),
+    });
+};
+
 // --- REGISTRO MANUAL ---
+export const socialLogin = async (req, res) => {
+    const { email, name, profilePicture, uid } = req.body;
+    try {
+        let user = await User.findOne({ email });
+
+        if (user) {
+            if (!user.googleId) {
+                user.googleId = uid;
+                user.isVerified = true; 
+                await user.save();
+            }
+        } else {
+            user = new User({
+                name,
+                email,
+                profilePicture,
+                googleId: uid,
+                isVerified: true,
+                password: Math.random().toString(36).slice(-10) + "Aa1!" 
+            });
+            await user.save();
+        }
+
+        // --- AQUÍ GENERALIZAMOS ---
+        // En lugar de res.status(200).json({ token, user: { ... } }), usamos:
+        await sendUserResponse(user, res);
+
+    } catch (error) {
+        console.error("DETALLE DEL ERROR EN SOCIAL LOGIN:", error); 
+        res.status(500).json({ message: "Error en login social", error: error.message });
+    }
+};
+
+
+
+// --- LOGIN MANUAL (CORREGIDO) ---
+export const loginUser = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+
+        if (user && (await user.matchPassword(password))) {
+            // Usamos nuestra función centralizada
+            await sendUserResponse(user, res);
+        } else {
+            res.status(401).json({ message: 'Correo o contraseña incorrectos' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: "Error en el inicio de sesión" });
+    }
+};
+
 export const register = async (req, res) => {
     const { name, email, password } = req.body;
     try {
@@ -35,47 +108,6 @@ export const register = async (req, res) => {
     }
 };
 
-// --- LOGIN CON GOOGLE ---
-export const socialLogin = async (req, res) => {
-    const { email, name, profilePicture, uid } = req.body;
-    try {
-        let user = await User.findOne({ email });
-
-        if (user) {
-            if (!user.googleId) {
-                user.googleId = uid;
-                user.isVerified = true; 
-                await user.save();
-            }
-        } else {
-            user = new User({
-                name,
-                email,
-                profilePicture,
-                googleId: uid,
-                isVerified: true,
-                password: Math.random().toString(36).slice(-10) + "Aa1!" 
-            });
-            await user.save();
-        }
-
-        const token = generateToken(user._id);
-        res.status(200).json({
-            token,
-            user: { 
-                id: user._id, 
-                name: user.name, 
-                email: user.email, 
-                isVerified: user.isVerified,
-                profilePicture: user.profilePicture 
-            }
-        });
-    } catch (error) {
-        console.error("DETALLE DEL ERROR EN SOCIAL LOGIN:", error); 
-        res.status(500).json({ message: "Error en login social", error: error.message });
-    }
-};
-
 // --- VERIFICACIÓN DE CÓDIGO ---
 export const verifyEmail = async (req, res) => {
     const { email, verificationCode } = req.body;
@@ -98,29 +130,6 @@ export const verifyEmail = async (req, res) => {
     } catch (error) {
         console.error("Error en verifyEmail:", error);
         res.status(500).json({ message: "Error interno en el servidor" });
-    }
-};
-
-// --- LOGIN MANUAL (CORREGIDO) ---
-export const loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
-
-        if (user && (await user.matchPassword(password))) {
-            res.json({
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                token: generateToken(user._id), // Generamos el token aquí
-            });
-        } else {
-            res.status(401).json({ message: 'Correo o contraseña incorrectos' });
-        }
-    } catch (error) {
-        console.error("Error en loginUser:", error);
-        res.status(500).json({ message: "Error en el inicio de sesión" });
     }
 };
 
@@ -172,3 +181,4 @@ export const updateUserProfile = async (req, res) => {
         res.status(500).json({ message: 'Error al actualizar el perfil' });
     }
 };
+

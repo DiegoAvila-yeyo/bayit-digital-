@@ -1,209 +1,234 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
+import React, { useState, useEffect, useContext } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 import { 
     ChevronDownIcon, 
     PlayCircleIcon, 
-    CheckBadgeIcon,
-    ClockIcon,
-    DevicePhoneMobileIcon,
-    TrophyIcon
+    CheckCircleIcon,
+    LockClosedIcon,
+    StarIcon
 } from '@heroicons/react/24/solid';
+import { toast } from 'react-hot-toast';
 
-export const CourseDetail = ({ PRIMARY_COLOR }) => {
+export const CourseDetail = ({ PRIMARY_COLOR = "#2563eb" }) => {
     const { id } = useParams();
+    const navigate = useNavigate();
+    const { user, setUser } = useContext(AuthContext);
+    
     const [course, setCourse] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeVideo, setActiveVideo] = useState('');
+    const [activeLessonId, setActiveLessonId] = useState(null);
     const [openSection, setOpenSection] = useState(0);
-    const { addToCart } = useCart(); 
+
+    // 1. Verificamos si el usuario posee el curso (Sincronizado con el estado global)
+    const purchasedData = user?.purchasedCourses?.find(item => {
+        const courseIdInUser = item.courseId?._id || item.courseId;
+        return courseIdInUser === id;
+    });
+    const isPurchased = !!purchasedData;
 
     useEffect(() => {
-        const fetchCourseDetail = async () => {
-            try {
-                const res = await axios.get(`http://localhost:5000/api/courses/${id}`);
-                setCourse(res.data);
-                // Seleccionar el primer video por defecto si existe
-                if (res.data.lessons?.length > 0) {
-                    setActiveVideo(res.data.lessons[0].videoUrl);
-                }
-                setLoading(false);
-            } catch (error) {
-                console.error("Error al obtener detalle:", error);
-                setLoading(false);
-            }
-        };
-        fetchCourseDetail();
+    window.scrollTo(0, 0);
     }, [id]);
 
-    if (loading) return <div className="p-20 text-center font-medium">Cargando el plan de estudio...</div>;
-    if (!course) return <div className="p-20 text-center text-2xl font-bold">Curso no encontrado.</div>;
+    useEffect(() => {
+    const fetchCourseDetail = async () => {
+        try {
+            const res = await axios.get(`http://localhost:5000/api/courses/${id}`);
+            setCourse(res.data);
+            
+            if (isPurchased && res.data.lessons?.length > 0) {
+                // BUSCAMOS LA ÚLTIMA LECCIÓN NO COMPLETADA
+                const lastLesson = res.data.lessons.find(l => 
+                    !purchasedData?.completedLessons?.includes(l._id)
+                ) || res.data.lessons[0]; // Si todas están completas, vamos a la primera
 
-    // --- LÓGICA DE AGRUPACIÓN POR SECCIONES ---
-    const sectionOrder = [];
-    const sections = {};
-
-    if (course.lessons && course.lessons.length > 0) {
-        course.lessons.forEach((lesson) => {
-            const sectionName = lesson.section || 'General';
-            if (!sections[sectionName]) {
-                sections[sectionName] = [];
-                sectionOrder.push(sectionName);
+                setActiveVideo(lastLesson.videoUrl);
+                setActiveLessonId(lastLesson._id);
+                const lessonIndex = res.data.lessons.findIndex(l => l._id === lastLesson._id);
             }
-            sections[sectionName].push(lesson);
-        });
-    }
+            setLoading(false);
+        } catch (error) {
+            console.error("Error al obtener detalle del curso:", error);
+            setLoading(false);
+        }
+    };
+    fetchCourseDetail();
+}, [id, isPurchased, user]); // Añadimos user para re-calcular si el progreso cambia
+
+    // 2. FUNCIÓN DE COMPRA: Actualiza contexto y storage instantáneamente
+    const handleSimulatedPurchase = async () => {
+        if (!user) {
+            toast.error("Debes iniciar sesión para adquirir este curso");
+            return navigate('/login');
+        }
+
+        const token = localStorage.getItem('token');
+
+        try {
+            const res = await axios.post('http://localhost:5000/api/users/simulate-purchase', 
+                { courseId: id }, 
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            const updatedUser = res.data.user;
+            
+            // CRÍTICO: Forzamos la reactividad con una copia nueva del objeto
+            setUser({ ...updatedUser });
+            localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+            
+            toast.success("¡Curso añadido a tu biblioteca!");
+        } catch (error) {
+            console.error("Error en la compra:", error);
+            toast.error(error.response?.data?.message || "Error al procesar la adquisición.");
+        }
+    };
+
+    // 3. ACTUALIZACIÓN DE PROGRESO: Sincroniza lecciones completadas
+    const handleVideoEnd = async () => {
+        if (!isPurchased || !activeLessonId || !user) return;
+        
+        const token = localStorage.getItem('token');
+
+        try {
+            const res = await axios.post(
+                'http://localhost:5000/api/users/update-progress', 
+                { courseId: id, lessonId: activeLessonId }, 
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            
+            // Actualizamos el usuario global para que los checks verdes aparezcan sin F5
+            const updatedUser = res.data.user || { ...user, purchasedCourses: res.data.purchasedCourses, streak: res.data.streak };
+            setUser({ ...updatedUser });
+            localStorage.setItem('userInfo', JSON.stringify(updatedUser));
+
+            toast.success("¡Lección completada!", { icon: '✅' });
+        } catch (error) {
+            console.error("Error al guardar progreso:", error);
+        }
+    };
+
+    if (loading) return (
+        <div className="flex justify-center items-center h-screen">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2" style={{ borderColor: PRIMARY_COLOR }}></div>
+        </div>
+    );
+
+    if (!course) return <div className="p-10 text-center font-bold text-red-500">Curso no encontrado</div>;
+
+    const sections = course.lessons.reduce((acc, lesson) => {
+        const sectionName = lesson.section || "General";
+        if (!acc[sectionName]) acc[sectionName] = [];
+        acc[sectionName].push(lesson);
+        return acc;
+    }, {});
 
     return (
-        <div className="bg-white min-h-screen pb-20">
-            {/* CABECERA ESTILO UDEMY */}
-            <div className="bg-[#1c1d1f] text-white py-12">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="lg:w-2/3">
-                        <nav className="text-sm font-bold text-blue-400 mb-4 flex gap-2">
-                            <span>{course.category?.name || 'Curso'}</span>
-                            <span className="text-gray-500">›</span>
-                            <span className="text-gray-300">Detalle</span>
-                        </nav>
-                        <h1 className="text-4xl font-extrabold mb-4">{course.title}</h1>
-                        <p className="text-xl text-gray-300 mb-6">{course.description?.substring(0, 160)}...</p>
-                        <div className="flex flex-wrap items-center gap-4 text-sm">
-                            <span className="bg-[#eceb98] text-[#3d3c0a] px-2 py-1 font-bold rounded text-xs uppercase text-center">Bestseller</span>
-                            <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                                4.9 ★★★★★ <span className="text-gray-400 font-normal">(1,200 alumnos)</span>
-                            </div>
-                            <span>Por <span className="text-blue-400 underline">{course.teacher?.name || 'Instructor Bayit'}</span></span>
+        <div className="min-h-screen bg-gray-50 pb-20">
+            {/* Video Player Section */}
+            <div className="bg-black w-full aspect-video lg:h-[550px] relative shadow-2xl">
+                {isPurchased ? (
+                    <video 
+                        key={activeVideo}
+                        controls 
+                        onEnded={handleVideoEnd}
+                        className="w-full h-full object-contain"
+                        src={`http://localhost:5000${activeVideo}`}
+                    />
+                ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-white p-6 text-center bg-gradient-to-br from-gray-900 to-black">
+                        <div className="bg-white/10 p-6 rounded-full mb-6 backdrop-blur-sm">
+                            <LockClosedIcon className="h-16 w-16 text-gray-400" />
                         </div>
+                        <h2 className="text-3xl font-black italic tracking-tighter">CONTENIDO PREMIUM</h2>
+                        <p className="mt-2 text-gray-400 max-w-md font-medium">Únete a los estudiantes que ya están transformando su carrera con este curso.</p>
+                        <button 
+                            onClick={handleSimulatedPurchase}
+                            className="mt-8 px-10 py-4 rounded-2xl font-black uppercase tracking-widest transition-all hover:scale-105 hover:brightness-110 shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                            style={{ backgroundColor: PRIMARY_COLOR }}
+                        >
+                            Comprar ahora por ${course.price}
+                        </button>
                     </div>
-                </div>
+                )}
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 mt-8">
+            {/* Course Information */}
+            <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div className="lg:col-span-2">
+                    <div className="flex items-center gap-3 mb-4">
+                        <span className="bg-blue-100 text-blue-700 px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider">
+                            {course.category?.name}
+                        </span>
+                        <div className="flex items-center gap-1 text-yellow-500 bg-yellow-50 px-3 py-1 rounded-xl">
+                            <StarIcon className="h-4 w-4" />
+                            <span className="font-bold text-yellow-700 text-sm">4.9</span>
+                        </div>
+                    </div>
+                    <h1 className="text-5xl font-black text-gray-900 mb-6 leading-tight tracking-tight">{course.title}</h1>
+                    <div className="prose prose-blue max-w-none text-gray-600 leading-relaxed text-lg">
+                        {course.description}
+                    </div>
+                </div>
+
+                {/* Sidebar: Curriculum */}
+                <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-8 h-fit sticky top-8">
+                    <h2 className="font-black text-2xl mb-8 flex items-center gap-3 italic">
+                        <PlayCircleIcon className="h-8 w-8" style={{ color: PRIMARY_COLOR }} /> 
+                        TEMARIO
+                    </h2>
                     
-                    {/* COLUMNA IZQUIERDA: CONTENIDO PRINCIPAL */}
-                    <div className="lg:col-span-2 space-y-10">
-                        
-                        {/* REPRODUCTOR DE VIDEO */}
-                        <div className="aspect-video bg-black rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10">
-                            {activeVideo ? (
-                                <video 
-                                    key={activeVideo} 
-                                    controls 
-                                    className="w-full h-full"
-                                    src={`http://localhost:5000${activeVideo}`}
-                                    controlsList="nodownload"
-                                ></video>
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-gray-500 italic">
-                                    No hay video disponible para esta lección
-                                </div>
-                            )}
-                        </div>
+                    <div className="space-y-6">
+                        {Object.keys(sections).map((sectionName, idx) => (
+                            <div key={idx} className="group">
+                                <button 
+                                    onClick={() => setOpenSection(openSection === idx ? -1 : idx)}
+                                    className="w-full flex justify-between items-center py-2 text-left font-black text-gray-800 group-hover:text-blue-600 transition-colors"
+                                >
+                                    <span className="uppercase text-sm tracking-widest">{sectionName}</span>
+                                    <ChevronDownIcon className={`h-5 w-5 transition-transform duration-300 ${openSection === idx ? 'rotate-180' : ''}`} />
+                                </button>
+                                
+                                {openSection === idx && (
+                                    <div className="mt-4 space-y-2 animate-in slide-in-from-top-2 duration-300">
+                                        {sections[sectionName].map((lesson) => {
+                                            const isDone = purchasedData?.completedLessons?.includes(lesson._id);
+                                            const isActive = activeLessonId === lesson._id;
 
-                        {/* DESCRIPCIÓN DETALLADA */}
-                        <div className="border border-gray-200 p-8 rounded-xl bg-white">
-                            <h2 className="text-2xl font-bold mb-4">Lo que aprenderás</h2>
-                            <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-                                {course.description}
-                            </p>
-                        </div>
-
-                        {/* ACORDEÓN DE SECCIONES (DEBAJO DEL VIDEO) */}
-                        <div className="space-y-4">
-                            <h2 className="text-2xl font-bold">Contenido del curso</h2>
-                            <div className="flex justify-between text-sm text-gray-600 mb-2">
-                                <span>{sectionOrder.length} secciones • {course.lessons?.length} lecciones</span>
-                            </div>
-
-                            <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                {sectionOrder.length > 0 ? (
-                                    sectionOrder.map((sectionName, idx) => (
-                                        <div key={idx} className="border-b last:border-b-0 border-gray-200">
-                                            <button 
-                                                onClick={() => setOpenSection(openSection === idx ? -1 : idx)}
-                                                className="w-full p-4 flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition-colors"
-                                            >
-                                                <div className="flex items-center gap-3">
-                                                    <ChevronDownIcon className={`h-4 w-4 transition-transform duration-300 ${openSection === idx ? 'rotate-180' : ''}`} />
-                                                    <span className="font-bold text-gray-800 text-left">{sectionName}</span>
-                                                </div>
-                                                <span className="text-sm text-gray-500 whitespace-nowrap">
-                                                    {sections[sectionName].length} clases
-                                                </span>
-                                            </button>
-                                            
-                                            {openSection === idx && (
-                                                <div className="bg-white">
-                                                    {sections[sectionName].map((lesson, lIdx) => (
-                                                        <div 
-                                                            key={lIdx}
-                                                            onClick={() => setActiveVideo(lesson.videoUrl)}
-                                                            className={`w-full p-4 flex items-center gap-4 cursor-pointer hover:bg-blue-50/50 border-t border-gray-100 transition-all ${activeVideo === lesson.videoUrl ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}`}
-                                                        >
-                                                            <PlayCircleIcon className={`h-5 w-5 flex-shrink-0 ${activeVideo === lesson.videoUrl ? 'text-blue-600' : 'text-gray-400'}`} />
-                                                            <div className="flex-1">
-                                                                <p className={`text-sm ${activeVideo === lesson.videoUrl ? 'text-blue-700 font-bold' : 'text-gray-700'}`}>
-                                                                    {lesson.title}
-                                                                </p>
+                                            return (
+                                                <button
+                                                    key={lesson._id}
+                                                    disabled={!isPurchased}
+                                                    onClick={() => {
+                                                        setActiveVideo(lesson.videoUrl);
+                                                        setActiveLessonId(lesson._id);
+                                                    }}
+                                                    className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
+                                                        !isPurchased ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-50 active:scale-[0.98]'
+                                                    } ${isActive ? 'bg-blue-50/50 ring-1 ring-blue-100' : ''}`}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        {isDone ? (
+                                                            <div className="bg-green-100 p-1 rounded-full">
+                                                                <CheckCircleIcon className="h-5 w-5 text-green-600" />
                                                             </div>
-                                                            <span className="text-xs text-blue-600 font-medium opacity-0 group-hover:opacity-100 uppercase">Vista previa</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="p-8 text-center text-gray-500">Este curso no tiene lecciones aún.</div>
+                                                        ) : (
+                                                            <PlayCircleIcon className={`h-6 w-6 ${isActive ? 'text-blue-600' : 'text-gray-300'}`} />
+                                                        )}
+                                                        <span className={`text-sm font-bold text-left ${isActive ? 'text-blue-900' : 'text-gray-600'}`}>
+                                                            {lesson.title}
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 )}
                             </div>
-                        </div>
+                        ))}
                     </div>
-
-                    {/* COLUMNA DERECHA: TARJETA FLOTANTE (STICKY) */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white rounded-xl shadow-2xl border border-gray-200 sticky top-8 overflow-hidden z-20 -mt-40 lg:-mt-72">
-                            <img 
-                                src={course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600'} 
-                                alt={course.title} 
-                                className="w-full h-48 object-cover border-b border-gray-200"
-                            />
-                            <div className="p-6">
-                                <div className="flex items-center gap-2 mb-6">
-                                    <span className="text-3xl font-bold">${course.price} USD</span>
-                                    <span className="text-gray-400 line-through text-lg">$94.99</span>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                    <button 
-                                        onClick={() => addToCart(course)}
-                                        className="w-full py-3.5 px-4 rounded font-bold text-white transition-transform active:scale-95 shadow-lg"
-                                        style={{ backgroundColor: PRIMARY_COLOR }}
-                                    >
-                                        Añadir al carrito
-                                    </button>
-                                    <button className="w-full py-3.5 px-4 rounded border border-gray-900 font-bold hover:bg-gray-50 transition-colors">
-                                        Comprar ahora
-                                    </button>
-                                </div>
-
-                                <p className="text-center text-xs text-gray-400 mt-4">Garantía de satisfacción de 30 días</p>
-
-                                <div className="mt-8 space-y-4">
-                                    <p className="font-bold text-sm text-gray-800">Este curso incluye:</p>
-                                    <div className="space-y-3 text-sm text-gray-600">
-                                        <div className="flex items-center gap-3"><ClockIcon className="h-5 w-5 text-gray-400" /> Acceso de por vida</div>
-                                        <div className="flex items-center gap-3"><DevicePhoneMobileIcon className="h-5 w-5 text-gray-400" /> Acceso en móviles y TV</div>
-                                        <div className="flex items-center gap-3"><CheckBadgeIcon className="h-5 w-5 text-gray-400" /> Tareas calificadas</div>
-                                        <div className="flex items-center gap-3"><TrophyIcon className="h-5 w-5 text-gray-400" /> Certificado de finalización</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
             </div>
         </div>

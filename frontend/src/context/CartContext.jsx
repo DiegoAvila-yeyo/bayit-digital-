@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-
+import { toast } from 'react-hot-toast';
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
@@ -17,9 +17,9 @@ export const CartProvider = ({ children }) => {
         const exist = cartItems.find((x) => x._id === course._id);
         if (!exist) {
             setCartItems([...cartItems, course]);
-            alert("Curso añadido al carrito");
+            toast.success("¡Excelente elección! Curso añadido.");
         } else {
-            alert("Este curso ya está en tu carrito");
+            toast.error("Este curso ya te espera en tu cesta.");
         }
     };
 

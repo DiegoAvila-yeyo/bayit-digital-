@@ -23,6 +23,26 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
     },
+    // --- GAMIFICACIÓN Y APRENDIZAJE ---
+    purchasedCourses: [{
+        courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
+        enrolledAt: { type: Date, default: Date.now },
+        completedLessons: [String], // Array de IDs de los videos vistos
+        lastViewed: { type: Date, default: Date.now }
+    }],
+    streak: {
+        type: Number,
+        default: 0
+    },
+    lastActivity: {
+        type: Date,
+        default: Date.now
+    },
+    activityLog: [{ // Para el gráfico de actividad
+        date: { type: Date, default: Date.now },
+        count: { type: Number, default: 1 } 
+    }],
+    // ---------------------------------
     googleId: {
         type: String,
         default: null
@@ -44,10 +64,8 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// --- MIDDLEWARE PARA ENCRIPTAR (Corregido: userSchema con minúscula) ---
 userSchema.pre('save', async function() {
     if (!this.isModified('password')) return;
-
     try {
         const salt = await bcrypt.genSalt(10);
         this.password = await bcrypt.hash(this.password, salt);
@@ -56,8 +74,6 @@ userSchema.pre('save', async function() {
     }
 });
 
-// --- MÉTODO PARA COMPARAR PASSWORDS ---
-// Cambiamos 'comparePassword' por 'matchPassword' para que coincida con tu controlador
 userSchema.methods.matchPassword = async function(candidatePassword) {
     if (!this.password) return false; 
     return await bcrypt.compare(candidatePassword, this.password);
