@@ -57,46 +57,71 @@ export const UploadCourse = ({ PRIMARY_COLOR }) => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('price', price);
-        formData.append('description', description);
-        formData.append('category', category);
-        
-        // Agregamos la imagen de portada
-        if (thumbnail) {
-            formData.append('thumbnail', thumbnail);
-        }
+    e.preventDefault();
 
-        // Estructura de secciones para el backend
-        const layout = sections.map(sec => ({
-            title: sec.title,
-            lessons: sec.lessons.map(les => ({ title: les.title }))
-        }));
-        formData.append('sectionsLayout', JSON.stringify(layout));
+    // 1. Obtenemos el token directamente de la clave 'token' que vimos en tu Local Storage
+    const token = localStorage.getItem('token');
 
-        // Agregamos todos los videos en orden
-        sections.forEach(sec => {
-            sec.lessons.forEach(les => {
-                if (les.video) formData.append('videos', les.video);
-            });
+    if (!token) {
+        alert('No se encontró una sesión activa. Por favor, inicia sesión de nuevo.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('price', price);
+    formData.append('description', description);
+    formData.append('category', category);
+    
+    // Imagen de portada
+    if (thumbnail) {
+        formData.append('thumbnail', thumbnail);
+    }
+
+    // Estructura de secciones
+    const layout = sections.map(sec => ({
+        title: sec.title,
+        lessons: sec.lessons.map(les => ({ title: les.title }))
+    }));
+    formData.append('sectionsLayout', JSON.stringify(layout));
+
+    // Videos en orden
+    sections.forEach(sec => {
+        sec.lessons.forEach(les => {
+            if (les.video) formData.append('videos', les.video);
         });
+    });
 
-        try {
-            const token = localStorage.getItem('userInfo') ? JSON.parse(localStorage.getItem('userInfo')).token : null;
-            await axios.post('http://localhost:5000/api/courses', formData, {
-                headers: { 
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${token}`
-                }
-            });
-            alert('¡Curso y portada subidos con éxito!');
-        } catch (err) {
-            console.error(err);
-            alert('Error al subir el curso');
+    try {
+        // Mostramos un mensaje de carga si lo deseas, subir videos toma tiempo
+        console.log("Subiendo curso con token:", token);
+
+        const config = {
+            headers: { 
+                'Content-Type': 'multipart/form-data',
+                Authorization: `Bearer ${token}`
+            }
+        };
+
+        const { data } = await axios.post('http://localhost:5000/api/courses', formData, config);
+        
+        alert('¡Curso y videos subidos con éxito!');
+        // Opcional: limpiar el formulario o redirigir
+    } catch (err) {
+        console.error("Error al subir:", err.response);
+        
+        // Manejo de errores específicos según lo que responda tu backend
+        const message = err.response && err.response.data.message 
+            ? err.response.data.message 
+            : 'Error de conexión con el servidor';
+            
+        alert(`Error: ${message}`);
+
+        if (err.response && err.response.status === 401) {
+            alert("Tu sesión ha expirado o no tienes permisos. Intenta loguearte de nuevo.");
         }
-    };
+    }
+};
 
     return (
         <div className="max-w-5xl mx-auto p-8 bg-gray-50 min-h-screen">
