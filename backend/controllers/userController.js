@@ -4,6 +4,7 @@ import User from '../models/User.js';
 const getPopulatedUser = async (id) => {
     return await User.findById(id)
         .select('-password')
+        .populate('cart')
         .populate({
             path: 'purchasedCourses.courseId',
             populate: { path: 'category', select: 'name' } 
@@ -120,5 +121,21 @@ export const simulatePurchase = async (req, res) => {
     } catch (error) {
         console.error("Error en simulatePurchase:", error);
         res.status(500).json({ message: "Error en el servidor al procesar la compra" });
+    }
+};
+export const updateCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { cart } = req.body; // Recibe array de IDs
+
+        const user = await User.findByIdAndUpdate(
+            userId, 
+            { cart: cart }, 
+            { new: true }
+        ).populate('cart');
+
+        res.status(200).json({ message: "Carrito actualizado", cart: user.cart });
+    } catch (error) {
+        res.status(500).json({ message: "Error al actualizar carrito" });
     }
 };

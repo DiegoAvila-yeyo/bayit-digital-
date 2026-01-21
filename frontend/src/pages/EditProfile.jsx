@@ -1,102 +1,146 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { CameraIcon, GlobeAltIcon, UserCircleIcon, IdentificationIcon } from '@heroicons/react/24/outline';
 
-const EditProfile = ({ PRIMARY_COLOR }) => {
+const EditProfile = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const { user, setUser } = useContext(AuthContext);
-    const [name, setName] = useState(user?.name || '');
+    
+    // Estados del Formulario
+    const [formData, setFormData] = useState({
+        name: user?.name || '',
+        bio: user?.bio || '',
+        specialty: user?.specialty || '',
+        website: user?.website || ''
+    });
     const [uploading, setUploading] = useState(false);
-    const [preview, setPreview] = useState(user?.profilePicture);
+    const [preview, setPreview] = useState(user?.profilePicture || '/default-avatar.png');
+
+    // Sincronizar si el usuario tarda en cargar del context
+    useEffect(() => {
+        if (user) {
+            setFormData({
+                name: user.name || '',
+                bio: user.bio || '',
+                specialty: user.specialty || '',
+                website: user.website || ''
+            });
+            setPreview(user.profilePicture);
+        }
+    }, [user]);
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
     const handleImageChange = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Vista previa inmediata
         setPreview(URL.createObjectURL(file));
         setUploading(true);
 
-        // CONFIGURACIÓN DE CLOUDINARY
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', 'bayit_digital_presets'); // Debes crear esto en Cloudinary settings
-        formData.append('cloud_name', 'dwyiw7evh');
+        const data = new FormData();
+        data.append('file', file);
+        data.append('upload_preset', 'bayit_digital_presets'); 
+        data.append('cloud_name', 'dwyiw7evh');
 
         try {
-            const res = await axios.post(
-                'https://api.cloudinary.com/v1_1/dwyiw7evh/image/upload',
-                formData
-            );
+            const res = await axios.post('https://api.cloudinary.com/v1_1/dwyiw7evh/image/upload', data);
             const imageUrl = res.data.secure_url;
             
-            // Enviamos la URL al backend
-            const config = {
-                headers: { Authorization: `Bearer ${user.token}` }
-            };
-            const { data } = await axios.put('http://localhost:5000/api/auth/profile', { profilePicture: imageUrl }, config);
+            // Actualizar solo la imagen en el backend
+            const { data: updatedUser } = await axios.put(
+                'http://localhost:5000/api/auth/profile', 
+                { profilePicture: imageUrl },
+                { headers: { Authorization: `Bearer ${user.token}` } }
+            );
             
-            setUser(data);
-            localStorage.setItem('userInfo', JSON.stringify(data));
-            toast.success('Foto de perfil actualizada');
+            // ACTUALIZACIÓN CRÍTICA DEL CONTEXTO
+            const newUserState = { ...user, ...updatedUser };
+            setUser(newUserState);
+            localStorage.setItem('userInfo', JSON.stringify(newUserState));
+            toast.success('Imagen actualizada');
         } catch (err) {
-            toast.error('Error al subir la imagen');
+            toast.error('Error al subir imagen');
         } finally {
             setUploading(false);
         }
     };
 
-    const handleUpdateName = async (e) => {
+    const handleUpdateProfile = async (e) => {
         e.preventDefault();
         try {
-            const config = {
-                headers: { Authorization: `Bearer ${user.token}` }
-            };
-            const { data } = await axios.put('http://localhost:5000/api/auth/profile', { name }, config);
+            const { data: updatedUser } = await axios.put(
+                'http://localhost:5000/api/auth/profile', 
+                formData, 
+                { headers: { Authorization: `Bearer ${user.token}` } }
+            );
             
-            setUser(data);
-            localStorage.setItem('userInfo', JSON.stringify(data));
-            toast.success('Nombre actualizado');
+            // Unimos el token viejo con los datos nuevos
+            const newUserState = { ...user, ...updatedUser };
+            setUser(newUserState);
+            localStorage.setItem('userInfo', JSON.stringify(newUserState));
+            toast.success('Perfil actualizado con éxito');
         } catch (err) {
-            toast.error('Error al actualizar nombre');
+            toast.error(err.response?.data?.message || 'Error al actualizar');
         }
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-10 mt-10 bg-white rounded-2xl shadow-lg border border-gray-100">
-            <h1 className="text-3xl font-bold mb-8">Configuración de Perfil</h1>
-            
-            <div className="flex items-center space-x-6 mb-10">
-                <div className="relative">
-                    <img src={preview} alt="Perfil" className="w-24 h-24 rounded-full object-cover border-4" style={{ borderColor: PRIMARY_COLOR }} />
-                    <label className="absolute bottom-0 right-0 bg-white p-1 rounded-full shadow-md cursor-pointer border border-gray-200">
+        <div className="max-w-4xl mx-auto p-6 md:p-12 mt-10 bg-white rounded-[3rem] shadow-2xl border border-gray-50">
+            <div className="flex flex-col md:flex-row items-center gap-8 mb-12 border-b border-gray-100 pb-10">
+                <div className="relative group">
+                    <div className="w-40 h-40 rounded-full overflow-hidden border-8 border-gray-50 shadow-inner">
+                        <img src={preview} alt="Perfil" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                    </div>
+                    <label className="absolute bottom-2 right-2 p-3 rounded-full shadow-xl cursor-pointer hover:scale-110 transition-all text-white" style={{ backgroundColor: PRIMARY_COLOR }}>
+                        <CameraIcon className="w-6 h-6" />
                         <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" />
-                        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     </label>
+                    {uploading && <div className="absolute inset-0 bg-white/60 rounded-full flex items-center justify-center font-black text-xs">SUBIENDO...</div>}
                 </div>
-                <div>
-                    <h3 className="font-bold text-lg">{user?.name}</h3>
-                    <p className="text-gray-500">{uploading ? 'Subiendo...' : 'Cambia tu foto de perfil'}</p>
+                
+                <div className="text-center md:text-left">
+                    <h1 className="text-4xl font-black text-gray-900 tracking-tighter uppercase italic">Mi <span style={{ color: PRIMARY_COLOR }}>Esencia</span></h1>
+                    <p className="text-gray-500 font-medium italic">Define cómo quieres que el mundo te perciba.</p>
                 </div>
             </div>
 
-            <form onSubmit={handleUpdateName} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre Completo</label>
-                    <input 
-                        type="text" 
-                        className="w-full px-4 py-2 border rounded-xl focus:ring-2 outline-none"
-                        style={{ '--tw-ring-color': PRIMARY_COLOR }}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                    />
+            <form onSubmit={handleUpdateProfile} className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Nombre */}
+                <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 ml-2">
+                        <UserCircleIcon className="w-4 h-4" /> Nombre Público
+                    </label>
+                    <input name="name" type="text" value={formData.name} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-orange-200 transition-all" />
                 </div>
-                <button 
-                    type="submit"
-                    className="px-6 py-2.5 rounded-xl text-white font-bold transition-all active:scale-95"
-                    style={{ backgroundColor: PRIMARY_COLOR }}
-                >
-                    Guardar Cambios
+
+                {/* Especialidad */}
+                <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 ml-2">
+                        <IdentificationIcon className="w-4 h-4" /> Especialidad / Rol
+                    </label>
+                    <input name="specialty" placeholder="Ej: Maestro en Teología" type="text" value={formData.specialty} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-orange-200 transition-all" />
+                </div>
+
+                {/* Biografía */}
+                <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black uppercase text-gray-400 ml-2 block">Tu Biografía / Propósito</label>
+                    <textarea name="bio" value={formData.bio} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-3xl font-medium outline-none h-32 border-2 border-transparent focus:border-orange-200 transition-all resize-none" placeholder="Cuéntanos sobre tu camino espiritual o profesional..."></textarea>
+                </div>
+
+                {/* Link Externo */}
+                <div className="md:col-span-2 space-y-2">
+                    <label className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-400 ml-2">
+                        <GlobeAltIcon className="w-4 h-4" /> Sitio Web o Portfolio
+                    </label>
+                    <input name="website" type="url" placeholder="https://tuweb.com" value={formData.website} onChange={handleChange} className="w-full p-4 bg-gray-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-orange-200 transition-all" />
+                </div>
+
+                <button type="submit" className="md:col-span-2 py-6 rounded-[2rem] text-white font-black text-xl shadow-xl transition-all active:scale-95 hover:brightness-110" style={{ backgroundColor: PRIMARY_COLOR }}>
+                    ACTUALIZAR IDENTIDAD
                 </button>
             </form>
         </div>

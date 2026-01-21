@@ -1,3 +1,4 @@
+import asyncHandler from 'express-async-handler';
 import User from '../models/User.js';
 import jwt from 'jsonwebtoken';
 import sendEmail from '../utils/sendEmail.js';
@@ -7,6 +8,8 @@ const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'clave_temporal', { expiresIn: '30d' });
 };
 
+// Función centralizada de respuesta (Mantenemos el populate que es tu "magia")
+// En tu authController.js, busca la función sendUserResponse y cámbiala a esto:
 const sendUserResponse = async (user, res) => {
     const populatedUser = await User.findById(user._id)
         .select('-password')
@@ -15,170 +18,171 @@ const sendUserResponse = async (user, res) => {
             populate: { path: 'category', select: 'name' }
         });
 
+    if (!populatedUser) {
+        res.status(404);
+        throw new Error("Usuario no encontrado en la base de datos");
+    }
+
+    // 🛡️ ENVOLVEMOS TODO EN UN OBJETO "user" PARA EL FRONTEND
     res.json({
-        _id: populatedUser._id,
-        name: populatedUser.name,
-        email: populatedUser.email,
-        role: populatedUser.role,
-        profilePicture: populatedUser.profilePicture,
-        isVerified: populatedUser.isVerified,
-        streak: populatedUser.streak,
-        purchasedCourses: populatedUser.purchasedCourses, // <-- AQUÍ ESTÁ LA MAGIA
+        user: {
+            _id: populatedUser._id,
+            name: populatedUser.name,
+            email: populatedUser.email,
+            role: populatedUser.role,
+            profilePicture: populatedUser.profilePicture,
+            isVerified: populatedUser.isVerified,
+            streak: populatedUser.streak,
+            purchasedCourses: populatedUser.purchasedCourses,
+        },
         token: generateToken(populatedUser._id),
     });
 };
 
-// --- REGISTRO MANUAL ---
-export const socialLogin = async (req, res) => {
-    const { email, name, profilePicture, uid } = req.body;
-    try {
-        let user = await User.findOne({ email });
+// --- SOCIAL LOGIN (FIREBASE ADMIN) ---
+export const socialLogin = asyncHandler(async (req, res) => {
+    const { email, name, picture, uid } = req.user; 
 
-        if (user) {
-            if (!user.googleId) {
-                user.googleId = uid;
-                user.isVerified = true; 
-                await user.save();
-            }
-        } else {
-            user = new User({
-                name,
-                email,
-                profilePicture,
-                googleId: uid,
-                isVerified: true,
-                password: Math.random().toString(36).slice(-10) + "Aa1!" 
-            });
+    let user = await User.findOne({ email });
+
+    if (user) {
+        if (!user.googleId) {
+            user.googleId = uid;
+            user.isVerified = true; 
             await user.save();
         }
-
-        // --- AQUÍ GENERALIZAMOS ---
-        // En lugar de res.status(200).json({ token, user: { ... } }), usamos:
-        await sendUserResponse(user, res);
-
-    } catch (error) {
-        console.error("DETALLE DEL ERROR EN SOCIAL LOGIN:", error); 
-        res.status(500).json({ message: "Error en login social", error: error.message });
-    }
-};
-
-
-
-// --- LOGIN MANUAL (CORREGIDO) ---
-export const loginUser = async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = await User.findOne({ email });
-
-        if (user && (await user.matchPassword(password))) {
-            // Usamos nuestra función centralizada
-            await sendUserResponse(user, res);
-        } else {
-            res.status(401).json({ message: 'Correo o contraseña incorrectos' });
-        }
-    } catch (error) {
-        res.status(500).json({ message: "Error en el inicio de sesión" });
-    }
-};
-
-export const register = async (req, res) => {
-    const { name, email, password } = req.body;
-    try {
-        const userExists = await User.findOne({ email });
-        if (userExists) return res.status(400).json({ message: "El usuario ya existe" });
-
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-        const user = new User({ name, email, password, verificationCode });
-        await user.save();
-
-        try {
-            const message = `<h1>Bienvenido</h1><p>Tu código es: <b>${verificationCode}</b></p>`;
-            await sendEmail({ email: user.email, subject: 'Verifica tu cuenta', message });
-        } catch (mailError) {
-            console.error("Error enviando email:", mailError);
-        }
-
-        res.status(201).json({ 
-            message: "Código enviado", 
-            user: { id: user._id, email: user.email, isVerified: false } 
+    } else {
+        user = await User.create({
+            name: name || "Usuario Nuevo",
+            email,
+            profilePicture: picture || "",
+            googleId: uid,
+            isVerified: true,
+            password: Math.random().toString(36).slice(-10) + "Aa1!" 
         });
-    } catch (error) {
-        console.error("Error en registro:", error);
-        res.status(500).json({ message: "Error interno en el servidor" });
     }
-};
+
+    await sendUserResponse(user, res);
+});
+
+// --- LOGIN MANUAL ---
+export const loginUser = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+
+    if (user && (await user.matchPassword(password))) {
+        await sendUserResponse(user, res);
+    } else {
+        res.status(401);
+        throw new Error('Correo o contraseña incorrectos');
+    }
+});
+
+// --- REGISTRO MANUAL ---
+export const register = asyncHandler(async (req, res) => {
+    const { name, email, password } = req.body;
+    
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+        res.status(400);
+        throw new Error("El usuario ya existe");
+    }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const user = await User.create({ name, email, password, verificationCode });
+
+    const message = `<h1>Bienvenido</h1><p>Tu código es: <b>${verificationCode}</b></p>`;
+    // No bloqueamos la respuesta si el email falla, pero lo manejamos
+    try {
+        await sendEmail({ email: user.email, subject: 'Verifica tu cuenta', message });
+    } catch (mailError) {
+        console.error("Error enviando email:", mailError);
+    }
+
+    res.status(201).json({ 
+        message: "Código enviado", 
+        user: { id: user._id, email: user.email, isVerified: false } 
+    });
+});
 
 // --- VERIFICACIÓN DE CÓDIGO ---
-export const verifyEmail = async (req, res) => {
+export const verifyEmail = asyncHandler(async (req, res) => {
     const { email, verificationCode } = req.body;
-    try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const user = await User.findOne({ email });
 
-        if (String(user.verificationCode) !== String(verificationCode)) {
-            return res.status(400).json({ message: "Código incorrecto" });
-        }
-
-        user.isVerified = true;
-        user.verificationCode = undefined;
-        await user.save();
-
-        res.status(200).json({ 
-            message: "Verificado con éxito", 
-            verifiedUser: { id: user._id, name: user.name, email: user.email, isVerified: true } 
-        });
-    } catch (error) {
-        console.error("Error en verifyEmail:", error);
-        res.status(500).json({ message: "Error interno en el servidor" });
+    if (!user) {
+        res.status(404);
+        throw new Error("Usuario no encontrado");
     }
-};
+
+    if (String(user.verificationCode) !== String(verificationCode)) {
+        res.status(400);
+        throw new Error("Código incorrecto");
+    }
+
+    user.isVerified = true;
+    user.verificationCode = undefined;
+    await user.save();
+
+    res.status(200).json({ 
+        message: "Verificado con éxito", 
+        verifiedUser: { id: user._id, name: user.name, email: user.email, isVerified: true } 
+    });
+});
 
 // --- REENVÍO DE CÓDIGO ---
-export const resendVerificationCode = async (req, res) => {
+export const resendVerificationCode = asyncHandler(async (req, res) => {
     const { email } = req.body;
-    try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+    const user = await User.findOne({ email });
 
-        const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-        user.verificationCode = newCode;
-        await user.save();
-
-        await sendEmail({ 
-            email: user.email, 
-            subject: 'Nuevo código de verificación', 
-            message: `<p>Tu nuevo código es: <b>${newCode}</b></p>` 
-        });
-
-        res.status(200).json({ message: "Nuevo código enviado" });
-    } catch (error) {
-        res.status(500).json({ message: "Error al reenviar" });
+    if (!user) {
+        res.status(404);
+        throw new Error("Usuario no encontrado");
     }
-};
+
+    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = newCode;
+    await user.save();
+
+    await sendEmail({ 
+        email: user.email, 
+        subject: 'Nuevo código de verificación', 
+        message: `<p>Tu nuevo código es: <b>${newCode}</b></p>` 
+    });
+
+    res.status(200).json({ message: "Nuevo código enviado" });
+});
 
 // --- ACTUALIZAR PERFIL ---
-export const updateUserProfile = async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id);
-        if (user) {
-            user.name = req.body.name || user.name;
-            user.profilePicture = req.body.profilePicture || user.profilePicture;
-            const updatedUser = await user.save();
+export const updateUserProfile = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
 
-            res.json({
-                _id: updatedUser._id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                profilePicture: updatedUser.profilePicture,
-                isVerified: updatedUser.isVerified,
-                token: generateToken(updatedUser._id) // Nuevo token actualizado
-            });
-        } else {
-            res.status(404).json({ message: 'Usuario no encontrado' });
+    if (user) {
+        user.name = req.body.name || user.name;
+        user.profilePicture = req.body.profilePicture || user.profilePicture;
+        user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
+        user.specialty = req.body.specialty !== undefined ? req.body.specialty : user.specialty;
+        user.website = req.body.website !== undefined ? req.body.website : user.website;
+
+        if (req.body.password) {
+            user.password = req.body.password;
         }
-    } catch (error) {
-        console.error("Error al actualizar perfil:", error);
-        res.status(500).json({ message: 'Error al actualizar el perfil' });
-    }
-};
 
+        const updatedUser = await user.save();
+
+        res.json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            profilePicture: updatedUser.profilePicture,
+            bio: updatedUser.bio,
+            specialty: updatedUser.specialty,
+            website: updatedUser.website,
+            role: updatedUser.role,
+            token: req.headers.authorization.split(' ')[1] 
+        });
+    } else {
+        res.status(404);
+        throw new Error('Usuario no encontrado');
+    }
+});

@@ -1,11 +1,11 @@
 import express from 'express';
 import { createCourse, getCourses, getCourseById } from '../controllers/courseController.js';
-import { protect } from '../middleware/authMiddleware.js';
-import upload from '../middleware/uploadMiddleware.js';
+import { protect, admin } from '../middleware/authMiddleware.js'; // Asegúrate de importar 'admin'
+import { upload } from '../config/cloudinaryConfig.js'; // Ahora con llaves { }
 
 const router = express.Router();
 
-// Configuramos para recibir 1 imagen 'thumbnail' y hasta 20 'videos'
+// Esto ahora funcionará porque 'upload' ya existe en el config
 const uploadFields = upload.fields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'videos', maxCount: 20 }
@@ -13,7 +13,7 @@ const uploadFields = upload.fields([
 
 router.route('/')
     .get(getCourses)
-    .post(protect, uploadFields, createCourse);
+    .post(protect, admin, uploadFields, createCourse); // Usa 'uploadFields' para aceptar imagen y videos
 
 router.route('/:id').get(getCourseById);
 

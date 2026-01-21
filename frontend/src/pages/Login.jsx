@@ -33,28 +33,34 @@ const Login = ({ PRIMARY_COLOR }) => {
         }
     };
 
-    const handleGoogleLogin = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            const result = await signInWithPopup(auth, provider);
-            const userFirebase = result.user;
+const handleGoogleLogin = async () => {
+    try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        
+        // 1. OBTENEMOS EL ID TOKEN (El "pasaporte" de seguridad)
+        const idToken = await result.user.getIdToken();
 
-            const res = await axios.post('http://localhost:5000/api/auth/social-login', {
-                name: userFirebase.displayName,
-                email: userFirebase.email,
-                profilePicture: userFirebase.photoURL,
-                uid: userFirebase.uid,
-            });
-
-            if (res.data && res.data.token) {
-                login(res.data); 
-                toast.success('Sesión iniciada con Google');
-                navigate('/');
+        // 2. ENVIAMOS LA PETICIÓN CON EL TOKEN EN EL HEADER
+        // Nota: Enviamos el body vacío {} porque el backend sacará los datos del token
+        const res = await axios.post('http://localhost:5000/api/auth/social-login', {}, {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
             }
-        } catch (err) {
-            toast.error('Error al conectar con Google');
+        });
+
+        // 3. MANEJO DE LA RESPUESTA
+        // Usamos res.data directamente porque login() se encarga de procesarlo
+        if (res.data) {
+            await login(res.data); 
+            toast.success('¡Sesión iniciada con Google!');
+            navigate('/');
         }
-    };
+    } catch (err) {
+        console.error("Error en Google Login:", err);
+        toast.error(err.response?.data?.message || 'Error al conectar con Google');
+    }
+};
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-gray-100">

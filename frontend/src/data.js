@@ -1,6 +1,7 @@
 // src/data.js
-export const PRIMARY_COLOR = "#3b82f6"; // Un azul vibrante y profesional
-export const HOVER_COLOR = "#2563eb";
+export const PRIMARY_COLOR = "#F7A823"; // El naranja cálido del logo
+export const SECONDARY_COLOR = "#2D2D2D"; // Un gris casi negro para elegancia y profundidad
+export const HOVER_COLOR = "#D48C19";
 
 export const categoriasCursos = [
     { 

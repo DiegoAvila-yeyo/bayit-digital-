@@ -1,38 +1,88 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import axios from 'axios';
+import { AuthContext } from './AuthContext';
+
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-    // Inicializamos con lo que haya en localStorage para no perder el carrito al refrescar
-    const [cartItems, setCartItems] = useState(() => {
-        const savedCart = localStorage.getItem('cart');
-        return savedCart ? JSON.parse(savedCart) : [];
-    });
+    const { user } = useContext(AuthContext);
+    const [cartItems, setCartItems] = useState([]);
 
+    // Sincronizar al cargar el usuario
     useEffect(() => {
-        localStorage.setItem('cart', JSON.stringify(cartItems));
-    }, [cartItems]);
-
-    const addToCart = (course) => {
-        const exist = cartItems.find((x) => x._id === course._id);
-        if (!exist) {
-            setCartItems([...cartItems, course]);
-            toast.success("¡Excelente elección! Curso añadido.");
+        if (user && user.cart) {
+            setCartItems(user.cart);
         } else {
-            toast.error("Este curso ya te espera en tu cesta.");
+            setCartItems([]);
+        }
+    }, [user]);
+
+    // Guardar en DB
+    const syncCartWithDB = async (newCart) => {
+        if (!user) return;
+        try {
+            const token = localStorage.getItem('token');
+            // Solo enviamos IDs de cursos reales al backend para evitar errores con los IDs temporales de los bundles
+            const courseIds = newCart
+                .map(item => item.itemType === 'bundle' ? item.courses : item._id)
+                .flat();
+
+            await axios.put('http://localhost:5000/api/users/update-cart', 
+                { cart: [...new Set(courseIds)] }, // Usamos Set para evitar duplicados
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+        } catch (error) {
+            console.error("Error al sincronizar carrito");
+        }
+    };
+
+    const addToCart = (item, isBundle = false) => {
+        if (isBundle) {
+            const hasBundle = cartItems.some(x => x.itemType === 'bundle');
+            if (hasBundle) {
+                toast.error("Solo se permite un Pack Ahorro por compra.");
+                return;
+            }
+            
+            const bundleItem = {
+                _id: `bundle-${Date.now()}`,
+                title: `Pack Ahorro: ${item.categoryName}`,
+                price: Number(item.price),
+                courses: item.courses,
+                itemType: 'bundle',
+                thumbnail: item.thumbnail
+            };
+
+            const updated = [...cartItems, bundleItem];
+            setCartItems(updated);
+            syncCartWithDB(updated);
+            toast.success("¡Pack Ahorro añadido!");
+        } else {
+            const exist = cartItems.find((x) => x._id === item._id);
+            if (!exist) {
+                const updated = [...cartItems, { ...item, itemType: 'course' }];
+                setCartItems(updated);
+                syncCartWithDB(updated);
+                toast.success("Curso añadido");
+            } else {
+                toast.error("Ya está en tu cesta.");
+            }
         }
     };
 
     const removeFromCart = (id) => {
-        setCartItems(cartItems.filter((x) => x._id !== id));
+        const updated = cartItems.filter((x) => x._id !== id);
+        setCartItems(updated);
+        syncCartWithDB(updated);
     };
 
-    const clearCart = () => setCartItems([]);
+    const clearCart = () => {
+        setCartItems([]);
+        syncCartWithDB([]);
+    };
 
-    const totalPrice = cartItems.reduce((acc, item) => {
-    const price = Number(item.price) || 0; // Forzamos a número
-    return acc + price;
-}, 0);
+    const totalPrice = cartItems.reduce((acc, item) => acc + (Number(item.price) || 0), 0);
 
     return (
         <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, clearCart, totalPrice }}>

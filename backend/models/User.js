@@ -23,40 +23,43 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: 'https://cdn-icons-png.flaticon.com/512/149/149071.png'
     },
-    // --- GAMIFICACIÓN Y APRENDIZAJE ---
+    // NUEVOS CAMPOS DE IDENTIDAD
+    bio: { 
+        type: String, 
+        maxlength: [500, 'La biografía no puede exceder los 500 caracteres'],
+        default: ''
+    },
+    specialty: { 
+        type: String, 
+        trim: true,
+        default: ''
+    },
+    website: { 
+        type: String, 
+        trim: true,
+        default: ''
+    },
+    // NUEVO: Campo para el carrito persistente
+    cart: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'Course' 
+    }],
     purchasedCourses: [{
         courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course' },
         enrolledAt: { type: Date, default: Date.now },
-        completedLessons: [String], // Array de IDs de los videos vistos
+        completedLessons: [String],
         lastViewed: { type: Date, default: Date.now }
     }],
-    streak: {
-        type: Number,
-        default: 0
-    },
-    lastActivity: {
-        type: Date,
-        default: Date.now
-    },
-    activityLog: [{ // Para el gráfico de actividad
+    streak: { type: Number, default: 0 },
+    lastActivity: { type: Date, default: Date.now },
+    activityLog: [{ 
         date: { type: Date, default: Date.now },
         count: { type: Number, default: 1 } 
     }],
-    // ---------------------------------
-    googleId: {
-        type: String,
-        default: null
-    },
-    isVerified: { 
-        type: Boolean, 
-        default: false 
-    },
-    verificationCode: { 
-        type: String 
-    },
-    verificationCodeExpires: { 
-        type: Date 
-    },
+    googleId: { type: String, default: null },
+    isVerified: { type: Boolean, default: false },
+    verificationCode: { type: String },
+    verificationCodeExpires: { type: Date },
     role: {
         type: String,
         enum: ['user', 'admin'],

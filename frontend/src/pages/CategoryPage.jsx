@@ -1,304 +1,303 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useCart } from '../context/CartContext';
-import { toast } from 'react-hot-toast';
 import { 
-    StarIcon, 
-    UsersIcon, 
-    PlusIcon, 
-    ShoppingCartIcon, 
-    FireIcon, 
-    SparklesIcon, 
     AdjustmentsHorizontalIcon, 
-    XMarkIcon,
-    ClockIcon,
-    AcademicCapIcon
-} from '@heroicons/react/24/solid';
+    SparklesIcon, 
+    SunIcon,
+    FireIcon,
+    ChevronDownIcon,
+    ChevronUpIcon,
+    PlusIcon
+} from '@heroicons/react/24/outline';
+import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
 
-import { AuthContext } from '../context/AuthContext';
+import { useCart } from '../context/CartContext'; 
+import { useAuth } from '../context/AuthContext'; 
 
-export const CategoryPage = ({ PRIMARY_COLOR = "#2563eb" }) => {
-    const navigate = useNavigate();
+const BUNDLE_IDS = [
+    "695ec186235fe122b7c80aef", 
+    "695ec1e2235fe122b7c80b14", 
+    "695ec211235fe122b7c80b19"
+];
+const BUNDLE_PRICE = 10.00;
+
+export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const { addToCart } = useCart();
-    const { categorySlug } = useParams();
-    const { user } = useContext(AuthContext);
-
-    // --- ESTADOS ---
-    const [courses, setCourses] = useState([]);
-    const [filteredCourses, setFilteredCourses] = useState([]);
+    const { user } = useAuth();
+    
+    // ESTADOS INDEPENDIENTES PARA SOLUCIONAR EL BUG 1
+    const [courses, setCourses] = useState([]); // Sección 3 (Filtrados)
+    const [featuredCourses, setFeaturedCourses] = useState([]); // Sección 2 (Fijos)
+    const [bundleItems, setBundleItems] = useState([]); // Sección 1
+    
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('populares');
-    const [showFilters, setShowFilters] = useState(true);
-    const [filters, setFilters] = useState({ sort: '', rating: 0, level: '', price: '' });
-    
-    const handleCourseClick = (id) => navigate(`/curso/${id}`);
+    const [loadingFeatured, setLoadingFeatured] = useState(true);
 
-    // 1. Carga de datos
-    useEffect(() => {
-        const fetchCourses = async () => {
-            try {
-                setLoading(true);
-                const response = await axios.get(`http://localhost:5000/api/courses`);
-                setCourses(response.data);
-                setLoading(false);
-            } catch (error) {
-                console.error("Error:", error);
-                setLoading(false);
-            }
-        };
-        fetchCourses();
-    }, [categorySlug]);
+    const [filters, setFilters] = useState({
+        rating: '',
+        duration: '',
+        topic: '',
+        subcategory: '',
+        level: '',
+        language: '',
+        priceRange: ''
+    });
 
-    // 2. Lógica de filtrado
-    useEffect(() => {
-        let result = [...courses];
+    const [openTabs, setOpenTabs] = useState({
+        rating: true, duration: true, topic: false, 
+        subcategory: false, level: false, language: false, price: false
+    });
 
-        if (user?.purchasedCourses) {
-            result = result.filter(course => 
-                !user.purchasedCourses.some(pc => (pc.courseId?._id || pc.courseId) === course._id)
-            );
-        }
+    const toggleTab = (tab) => setOpenTabs(prev => ({ ...prev, [tab]: !prev[tab] }));
 
-        if (filters.rating) {
-            result = result.filter(c => (c.rating || 4.0) >= filters.rating);
-        }
-
-        if (filters.level) {
-            result = result.filter(c => c.level === filters.level);
-        }
-
-        if (filters.sort === 'popular') {
-            result.sort((a, b) => (b.studentsCount || 0) - (a.studentsCount || 0));
-        } else if (filters.sort === 'rating') {
-            result.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        }
-
-        setFilteredCourses(result);
-    }, [filters, courses, user]);
-
-    const handleClearFilters = () => setFilters({ sort: '', rating: 0, level: '', price: '' });
-    
-    const onAddToCart = (e, course) => {
-        e.stopPropagation();
-        addToCart(course);
-        toast.success(`${course.title} agregado`);
+    const handleFilterChange = (key, value) => {
+        setFilters(prev => ({ ...prev, [key]: prev[key] === value ? '' : value }));
     };
 
-    const categoryName = categorySlug ? categorySlug.replace(/-/g, ' ') : "Cursos";
+    // --- CARGA DE CURSOS FILTRADOS (SECCIÓN 3) ---
+    const fetchFilteredCourses = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value) params.append(key, value);
+            });
+            // Importante: No enviamos 'section=featured' aquí
+            const response = await axios.get(`/api/courses?${params.toString()}`);
+            setCourses(response.data);
+        } catch (error) {
+            console.error("Error cargando cursos filtrados:", error);
+        } finally {
+            setLoading(false);
+        }
+    }, [filters]);
 
-    if (loading) return (
-        <div className="min-h-screen flex items-center justify-center">
-            <div className="text-center italic text-gray-500">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                Cargando tu catálogo...
+    // --- CARGA DE CURSOS DESTACADOS (SECCIÓN 2) ---
+    // Esta función solo se llama al montar el componente o si el usuario cambia
+    const fetchFeatured = async () => {
+        setLoadingFeatured(true);
+        try {
+            const response = await axios.get('/api/courses?section=featured');
+            setFeaturedCourses(response.data);
+            
+            // Aprovechamos para buscar los items del bundle aquí una sola vez
+            const bundleData = response.data.filter(c => BUNDLE_IDS.includes(c._id));
+            if(bundleData.length > 0) setBundleItems(bundleData);
+        } catch (error) {
+            console.error("Error cargando destacados:", error);
+        } finally {
+            setLoadingFeatured(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchFeatured();
+    }, [user]);
+
+    useEffect(() => {
+        fetchFilteredCourses();
+    }, [fetchFilteredCourses]);
+
+    const handleAddBundle = () => {
+        if (bundleItems.length === 0) return;
+        const bundleObj = {
+            _id: 'bundle-maestro-unique',
+            title: 'Pack Maestro: Sabiduría Integral',
+            price: BUNDLE_PRICE,
+            isBundle: true,
+            coursesContained: BUNDLE_IDS,
+            thumbnail: bundleItems[0]?.thumbnail || '',
+            quantity: 1
+        };
+        addToCart(bundleObj);
+    };
+
+    const CourseCard = ({ course }) => (
+        <div className="bg-white rounded-3xl p-4 border border-gray-100 shadow-sm hover:shadow-xl transition-all group overflow-hidden">
+            <div className="aspect-video rounded-2xl overflow-hidden mb-4 relative bg-gray-50">
+                <img 
+                    src={course.thumbnail} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                    alt={course.title} 
+                />
+                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur px-2 py-1 rounded-lg flex items-center gap-1 shadow-sm">
+                    <StarSolid className="h-3 w-3 text-orange-500" />
+                    <span className="text-[10px] font-black">{course.rating || '5.0'}</span>
+                </div>
+            </div>
+            
+            <h3 className="text-sm font-bold text-gray-900 leading-tight line-clamp-2 h-10 mb-1">
+                {course.title}
+            </h3>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4">
+                {course.level}
+            </p>
+
+            <div className="flex justify-between items-center pt-4 border-t border-gray-50">
+                <div className="flex flex-col">
+                    <span className="text-[10px] text-gray-400 font-bold uppercase">Precio</span>
+                    <span className="font-black text-gray-900 text-lg">${course.price}</span>
+                </div>
+                <button 
+                    onClick={() => addToCart({...course, quantity: 1})}
+                    className="bg-gray-900 text-white p-2.5 rounded-2xl hover:bg-orange-500 transition-all active:scale-90 shadow-lg"
+                >
+                    <PlusIcon className="h-5 w-5 stroke-[3px]" />
+                </button>
             </div>
         </div>
     );
 
-    return (
-        <div className="min-h-screen bg-white font-sans text-gray-900">
-            
-            {/* SECCIÓN 1: HERO */}
-            <section className="bg-gray-100 py-16 px-4 md:px-12 border-b">
-                <div className="max-w-7xl mx-auto">
-                    <h1 className="text-5xl font-black capitalize mb-4 tracking-tight">{categoryName}</h1>
-                    <p className="text-xl text-gray-600 max-w-3xl mb-8 leading-relaxed">
-                        Domina {categoryName} con expertos del mundo real y avanza en tu carrera profesional.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-8 mb-10">
-                        <div className="flex items-center text-gray-800 font-bold">
-                            <UsersIcon className="h-6 w-6 mr-2 text-gray-500" />
-                            <span>{courses.reduce((acc, c) => acc + (c.studentsCount || 0), 0).toLocaleString()} alumnos aprendiendo</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* SECCIÓN 2: PAQUETE ESPECIAL */}
-            <section className="max-w-7xl mx-auto px-4 md:px-12 py-16">
-                <div className="bg-blue-50/40 border-2 border-dashed border-blue-200 rounded-3xl p-10 flex flex-col lg:flex-row items-center gap-12">
-                    <div className="flex-1 text-center lg:text-left">
-                        <span className="bg-blue-600 text-white px-4 py-1 rounded-lg text-xs font-black uppercase tracking-widest">¡Oferta Estrella!</span>
-                        <h2 className="text-4xl font-black mt-6 mb-4 leading-tight">Paquete Maestro en {categoryName}</h2>
-                        <div className="flex items-center justify-center lg:justify-start gap-6 mb-8">
-                            <div className="flex flex-col">
-                                <span className="text-4xl font-black text-gray-900">$299.00</span>
-                                <span className="text-lg text-gray-400 line-through">$540.00</span>
-                            </div>
-                            <div className="bg-green-100 text-green-700 font-black px-4 py-2 rounded-xl text-sm">AHORRA 45%</div>
-                        </div>
-                        <button className="w-full md:w-auto bg-gray-900 text-white px-12 py-5 rounded-2xl font-black text-lg hover:bg-black transition-all flex items-center justify-center gap-3 shadow-xl">
-                            <ShoppingCartIcon className="h-6 w-6" /> Comprar Paquete
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-4 md:gap-8">
-                        {courses.slice(0, 2).map((c, i) => (
-                            <React.Fragment key={c._id}>
-                                <div className="w-40 md:w-56 bg-white p-3 rounded-2xl shadow-xl border border-gray-100">
-                                    <img src={`http://localhost:5000${c.thumbnail}`} className="rounded-xl h-24 md:h-32 w-full object-cover mb-3" alt="" />
-                                    <p className="text-xs font-black line-clamp-1">{c.title}</p>
-                                </div>
-                                {i === 0 && <PlusIcon className="h-10 w-10 text-blue-400 stroke-2" />}
-                            </React.Fragment>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* SECCIÓN 3: PESTAÑAS POPULARES */}
-            <section className="max-w-7xl mx-auto px-4 md:px-12 py-16">
-                <div className="flex gap-4 mb-10 overflow-x-auto pb-2">
-                    <button 
-                        onClick={() => setActiveTab('populares')}
-                        className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-black whitespace-nowrap transition-all ${activeTab === 'populares' ? 'bg-gray-900 text-white shadow-xl' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                    >
-                        <FireIcon className="h-5 w-5" /> Más populares
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('favoritos')}
-                        className={`flex items-center gap-2 px-8 py-4 rounded-2xl font-black whitespace-nowrap transition-all ${activeTab === 'favoritos' ? 'bg-gray-900 text-white shadow-xl' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
-                    >
-                        <SparklesIcon className="h-5 w-5" /> Recomendados
-                    </button>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                    {(activeTab === 'populares' ? courses.slice(0,4) : courses.slice().reverse().slice(0,4)).map(course => (
-                        <div key={course._id} onClick={() => handleCourseClick(course._id)} className="group cursor-pointer">
-                            <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 shadow-sm border">
-                                <img src={`http://localhost:5000${course.thumbnail}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
-                            </div>
-                            <h4 className="font-bold text-gray-900 line-clamp-2 group-hover:underline">{course.title}</h4>
-                            <div className="flex items-center gap-2 mt-2">
-                                <span className="text-xs font-black text-orange-600">{course.rating || '4.8'}</span>
-                                <StarIcon className="h-3 w-3 text-orange-400" />
-                            </div>
-                        </div>
+    const FilterSection = ({ id, title, options, filterKey }) => (
+        <div className="border-b border-gray-100 py-4">
+            <button onClick={() => toggleTab(id)} className="flex items-center justify-between w-full text-left">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-900">{title}</span>
+                {openTabs[id] ? <ChevronUpIcon className="h-3 w-3" /> : <ChevronDownIcon className="h-3 w-3" />}
+            </button>
+            {openTabs[id] && (
+                <div className="space-y-2 mt-4 animate-fadeIn">
+                    {options.map(opt => (
+                        <label key={opt.value} className="flex items-center gap-3 cursor-pointer group">
+                            <input 
+                                type="checkbox" 
+                                checked={filters[filterKey] === opt.value}
+                                onChange={() => handleFilterChange(filterKey, opt.value)}
+                                className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                            />
+                            <span className={`text-sm transition-colors ${filters[filterKey] === opt.value ? 'text-orange-500 font-bold' : 'text-gray-500 group-hover:text-gray-900'}`}>
+                                {opt.label}
+                            </span>
+                        </label>
                     ))}
                 </div>
-            </section>
+            )}
+        </div>
+    );
 
-            {/* SECCIÓN 4: EXPLORACIÓN COMPLETA Y FILTROS */}
-            <main className="max-w-7xl mx-auto px-4 md:px-12 py-20 border-t">
-                <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
-                    <div className="flex items-center gap-4">
-                        <button 
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="flex items-center gap-3 px-8 py-4 border-2 border-gray-900 font-black rounded-xl hover:bg-gray-50 transition-all active:scale-95"
-                        >
-                            <AdjustmentsHorizontalIcon className="h-6 w-6" /> {showFilters ? 'Ocultar Filtros' : 'Mostrar Filtros'}
-                        </button>
-                        <select 
-                            value={filters.sort}
-                            onChange={(e) => setFilters({...filters, sort: e.target.value})}
-                            className="bg-white border-2 border-gray-900 px-8 py-4 font-black rounded-xl focus:outline-none cursor-pointer"
-                        >
-                            <option value="">Ordenar por</option>
-                            <option value="popular">Más populares</option>
-                            <option value="rating">Mejor valorados</option>
-                        </select>
-                    </div>
-                    {Object.values(filters).some(v => v !== '' && v !== 0) && (
-                        <button onClick={handleClearFilters} className="text-red-600 font-black flex items-center gap-2 hover:underline">
-                            <XMarkIcon className="h-5 w-5" /> Borrar filtros
-                        </button>
-                    )}
-                </div>
+    return (
+        <div className="min-h-screen bg-white pb-24">
+            
+            {/* 1. SECCIÓN BUNDLE */}
+            <div className="pt-24 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="relative bg-gray-900 rounded-[3.5rem] overflow-hidden shadow-2xl">
+                    <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+                    <div className="relative z-10 flex flex-col lg:flex-row items-center p-10 lg:p-20 gap-16">
+                        <div className="flex-1 text-center lg:text-left">
+                            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 text-orange-500 text-[10px] font-black uppercase tracking-widest mb-6 border border-orange-500/20">
+                                <SparklesIcon className="h-4 w-4" /> Recomendación del mes
+                            </span>
+                            <h1 className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight">
+                                Pack Maestro: <br/><span style={{ color: PRIMARY_COLOR }}>Sabiduría Integral</span>
+                            </h1>
+                            <p className="text-gray-400 text-lg mb-10 max-w-xl leading-relaxed">
+                                Adquiere los pilares fundamentales con un precio especial de lanzamiento.
+                            </p>
+                            <button onClick={handleAddBundle} className="px-10 py-5 bg-white text-gray-900 font-black rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center gap-3 mx-auto lg:mx-0">
+                                Adquirir Pack <FireIcon className="h-5 w-5 text-orange-500" />
+                            </button>
+                        </div>
 
-                <div className="flex flex-col lg:flex-row gap-12">
-                    {/* ASIDE DE FILTROS */}
-                    {showFilters && (
-                        <aside className="w-full lg:w-72 space-y-10">
-                            <div>
-                                <h4 className="font-black text-xl mb-6">Valoración</h4>
-                                {[4.5, 4, 3].map(stars => (
-                                    <label key={stars} className="flex items-center gap-3 mb-4 cursor-pointer">
-                                        <input 
-                                            type="radio" 
-                                            name="rating" 
-                                            checked={filters.rating === stars}
-                                            onChange={() => setFilters({...filters, rating: stars})} 
-                                            className="w-5 h-5 accent-gray-900" 
-                                        />
-                                        <div className="flex text-yellow-400">
-                                            {[...Array(5)].map((_, i) => (
-                                                <StarIcon key={i} className={`h-4 w-4 ${i < Math.floor(stars) ? 'text-yellow-400' : 'text-gray-200'}`} />
-                                            ))}
-                                        </div>
-                                        <span className="text-sm font-bold text-gray-600">{stars} o más</span>
-                                    </label>
-                                ))}
-                            </div>
-                            <div>
-                                <h4 className="font-black text-xl mb-6 border-t pt-6">Nivel</h4>
-                                {['Básico', 'Intermedio', 'Avanzado'].map(lvl => (
-                                    <label key={lvl} className="flex items-center gap-3 mb-4 cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={filters.level === lvl} 
-                                            onChange={() => setFilters({...filters, level: filters.level === lvl ? '' : lvl})} 
-                                            className="w-5 h-5 accent-gray-900 rounded" 
-                                        />
-                                        <span className="font-bold text-gray-700">{lvl}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </aside>
-                    )}
-
-                    {/* GRILLA PRINCIPAL */}
-                    <div className="flex-1">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-10">
-                            {filteredCourses.length > 0 ? filteredCourses.map(course => (
-                                <div 
-                                    key={course._id} 
-                                    onClick={() => handleCourseClick(course._id)}
-                                    className="group flex flex-col h-full bg-white border border-transparent hover:border-gray-200 hover:shadow-2xl p-4 rounded-[2rem] transition-all duration-500 cursor-pointer"
-                                >
-                                    <div className="relative aspect-video rounded-2xl overflow-hidden mb-5">
-                                        <img src={`http://localhost:5000${course.thumbnail}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
-                                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black uppercase">
-                                            {course.level || 'Todos los niveles'}
-                                        </div>
+                        <div className="flex-1 w-full max-w-md relative h-[350px] flex items-center justify-center">
+                            {bundleItems.length > 0 ? (
+                                bundleItems.map((c, i) => (
+                                    <div key={c._id} className="absolute w-60 h-80 transition-all duration-500"
+                                         style={{ transform: `rotate(${i * 8 - 8}deg) translateX(${i * 30}px)`, zIndex: 10 - i }}>
+                                        <img src={c.thumbnail} className="w-full h-full object-cover rounded-2xl shadow-2xl border-2 border-white/10" alt="bundle-course" />
                                     </div>
-
-                                    <h3 className="text-lg font-black text-gray-900 mb-2 leading-tight flex-1 group-hover:text-blue-600 transition-colors">
-                                        {course.title}
-                                    </h3>
-
-                                    <div className="flex items-center gap-2 mb-3">
-                                        <span className="text-sm font-black text-orange-700">{course.rating || '4.5'}</span>
-                                        <div className="flex text-orange-400">
-                                            {[...Array(5)].map((_, i) => <StarIcon key={i} className="h-3 w-3" />)}
-                                        </div>
-                                        <span className="text-xs text-gray-400">({(course.studentsCount || 0).toLocaleString()})</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 text-gray-500 text-xs font-bold mb-6">
-                                        <span className="flex items-center gap-1"><ClockIcon className="h-4 w-4" /> 15h 30m</span>
-                                        <span className="flex items-center gap-1"><AcademicCapIcon className="h-4 w-4" /> {course.lessons?.length || 10} lecciones</span>
-                                    </div>
-
-                                    <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
-                                        <span className="text-2xl font-black text-gray-900">${course.price}</span>
-                                        <button 
-                                            onClick={(e) => onAddToCart(e, course)}
-                                            className="p-3 bg-gray-100 rounded-xl hover:bg-gray-900 hover:text-white transition-all active:scale-90"
-                                        >
-                                            <PlusIcon className="h-6 w-6" />
-                                        </button>
-                                    </div>
-                                </div>
-                            )) : (
-                                <div className="col-span-full py-32 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-                                    <p className="text-2xl font-bold text-gray-400">No hay cursos con estos filtros.</p>
-                                    <button onClick={handleClearFilters} className="mt-4 text-blue-600 font-black hover:underline">Ver todos los cursos</button>
-                                </div>
+                                ))
+                            ) : (
+                                <div className="w-full h-64 bg-gray-800 rounded-3xl border border-dashed border-gray-700 flex items-center justify-center text-gray-500 italic text-sm">Configura BUNDLE_IDS con IDs reales</div>
                             )}
+                            <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-2xl shadow-2xl z-30 -rotate-6">
+                                <p className="text-gray-900 font-black text-2xl">${BUNDLE_PRICE}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
+
+            {/* 2. SECCIÓN DESTACADOS (USA featuredCourses) */}
+            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-24">
+                <div className="flex items-center gap-4 mb-10">
+                    <h2 className="text-3xl font-black text-gray-900 tracking-tight">Cursos Destacados</h2>
+                    <div className="h-px flex-1 bg-gray-100"></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {loadingFeatured ? (
+                        [1,2,3,4].map(i => <div key={i} className="h-64 bg-gray-50 animate-pulse rounded-3xl"></div>)
+                    ) : (
+                        featuredCourses.map(course => <CourseCard key={course._id} course={course} />)
+                    )}
+                </div>
+            </section>
+
+            {/* 3. EXPLORACIÓN (USA courses filtrados) */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row gap-16 border-t border-gray-100 pt-20">
+                <aside className="lg:w-64 flex-shrink-0">
+                    <div className="sticky top-28 space-y-2">
+                        <div className="flex items-center gap-2 mb-8">
+                            <AdjustmentsHorizontalIcon className="h-6 w-6 text-gray-900" />
+                            <h2 className="font-black text-xl text-gray-900">Filtros</h2>
+                        </div>
+
+                        <FilterSection id="rating" title="Valoraciones" filterKey="rating" options={[
+                            { label: '4.5 o más', value: '4.5' },
+                            { label: '4.0 o más', value: '4.0' },
+                            { label: '3.5 o más', value: '3.5' }
+                        ]} />
+
+                        <FilterSection id="duration" title="Duración de video" filterKey="duration" options={[
+                            { label: '0-2 Horas', value: 'short' },
+                            { label: '3-6 Horas', value: 'medium' },
+                            { label: '7-16 Horas', value: 'long' }
+                        ]} />
+
+                        <FilterSection id="topic" title="Tema" filterKey="topic" options={[
+                            { label: 'Espiritualidad', value: 'Espiritualidad' }, 
+                            { label: 'Teología', value: 'Teología' }
+                        ]} />
+
+                        <FilterSection id="subcategory" title="Subcategoría" filterKey="subcategory" options={[
+                            { label: 'Antiguo Testamento', value: 'Antiguo Testamento' }, 
+                            { label: 'Liderazgo', value: 'Liderazgo' }
+                        ]} />
+
+                        <FilterSection id="level" title="Nivel" filterKey="level" options={[
+                            { label: 'Iniciación', value: 'Iniciación' }, 
+                            { label: 'Intermedio', value: 'Intermedio' },
+                            { label: 'Avanzado', value: 'Avanzado' }
+                        ]} />
+
+                        <FilterSection id="language" title="Idioma" filterKey="language" options={[
+                            { label: 'Español', value: 'es' }, 
+                            { label: 'Inglés', value: 'en' }
+                        ]} />
+
+                        <FilterSection id="price" title="Precio" filterKey="priceRange" options={[
+                            { label: 'Gratis', value: 'free' }, 
+                            { label: 'Premium', value: 'premium' }
+                        ]} />
+                    </div>
+                </aside>
+
+                <main className="flex-1">
+                    {loading ? (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-8 animate-pulse">
+                            {[1,2,3,4,5,6].map(i => <div key={i} className="h-72 bg-gray-50 rounded-3xl"></div>)}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 xl:grid-cols-3 gap-8">
+                            {courses.length > 0 ? courses.map(course => (
+                                <CourseCard key={course._id} course={course} />
+                            )) : (
+                                <div className="col-span-full py-20 text-center text-gray-400 italic">No hay cursos con estos criterios.</div>
+                            )}
+                        </div>
+                    )}
+                </main>
+            </div>
         </div>
     );
 };
+
+export default CategoryPage;

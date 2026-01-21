@@ -21,12 +21,16 @@ const courseSchema = new mongoose.Schema({
     }, 
     description: {
         type: String,
-        required: [true, 'La descripción es obligatoria']
+        required: [true, 'El descripción es obligatoria']
     },
     price: {
         type: Number,
         required: [true, 'El precio es obligatorio'],
         default: 0
+    },
+    thumbnail: {
+        type: String,
+        default: '/uploads/default-course.jpg'
     },
     lessons: [lessonSchema], 
     teacher: {
@@ -34,30 +38,63 @@ const courseSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    
+    // Mantenemos Category como ObjectId porque viene de tu DB
     category: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Category',
+        ref: 'Category', 
         required: true
     },
-    thumbnail: {
-        type: String,
-        default: '/uploads/default-course.jpg' // Ruta local por defecto
+
+    // --- CAMBIO CLAVE AQUÍ ---
+    // Cambiamos ObjectId por String para que acepte "Liderazgo", "Meditación", etc.
+    subcategory: { 
+        type: String, 
+        default: 'General' 
     },
-    level: {
+    
+    topic: { 
+        type: String, 
+        default: 'Espiritualidad' 
+    },
+    level: { 
+        type: String, 
+        enum: ['Iniciación', 'Intermedio', 'Avanzado', 'Masterclass'],
+        default: 'Iniciación'
+    },
+    language: { 
+        type: String, 
+        default: 'es' 
+    },
+    rating: { 
+        type: Number, 
+        default: 5.0 
+    },
+    durationHours: { 
+        type: Number, 
+        default: 0 
+    },
+    goal: { 
         type: String,
-        enum: ['Básico', 'Intermedio', 'Avanzado'],
-        default: 'Básico'
+        enum: ['Paz Interior', 'Conocimiento Intelectual', 'Impacto Social', 'Transformación', 'Propósito', 'Conocimiento'],
+        default: 'Paz Interior'
+    },
+    isOffer: {
+        type: Boolean,
+        default: false
     },
     published: {
         type: Boolean,
-        default: false
+        default: true // Lo ponemos en true por defecto para facilitar tus pruebas
     }
 }, { timestamps: true });
 
-// CORRECCIÓN AQUÍ: Quitamos el parámetro 'next' para evitar el TypeError
+// Middleware para generar el Slug
 courseSchema.pre('save', async function() {
-    if (!this.isModified('title')) return;
-    this.slug = slugify(this.title, { lower: true, strict: true });
+    if (this.isModified('title') || !this.slug) {
+        this.slug = slugify(this.title, { lower: true, strict: true });
+    }
+    // Al ser una función async, Mongoose sabe cuándo terminar sin necesidad de next()
 });
 
 const Course = mongoose.model('Course', courseSchema);

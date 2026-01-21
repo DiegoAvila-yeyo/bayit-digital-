@@ -5,16 +5,20 @@ import Navbar from './components/Navbar.jsx';
 import { Hero } from './components/Hero.jsx';
 import { CourseCarousel } from './components/CourseCarousel.jsx';
 import { SendaPro } from './components/SendaPro.jsx';
+import ComingSoon from './pages/ComingSoon';
 import { UdemyCarousel } from './components/UdemyCarousel.jsx';
 import { Footer } from './components/Footer.jsx';
 import { CourseDetail } from './pages/CourseDetail.jsx';
-import { CategoryPage } from './pages/CategoryPage.jsx'; // NUEVO
+import { CategoryPage } from './pages/CategoryPage.jsx';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
-import PrivateRoute from './components/PrivateRoute';
 import { Toaster } from 'react-hot-toast';
 import { SearchResultsPage } from './pages/SearchResultsPage';
+
+// --- IMPORTACIÓN DE PROTECTORES DE RUTAS ---
+import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute'; // Nuevo guardián de rol
 
 import MyLearning from './pages/MyLearning'; 
 import EditProfile from './pages/EditProfile'; 
@@ -27,12 +31,14 @@ function App() {
   return (
     <AuthProvider>
       <CartProvider>
+        {/* Toaster centralizado para notificaciones de éxito/error */}
         <Toaster position="top-center" reverseOrder={false} />
         
         <div className="min-h-screen bg-white">
           <Navbar PRIMARY_COLOR={PRIMARY_COLOR} HOVER_COLOR={HOVER_COLOR} />
 
           <Routes>
+            {/* --- RUTAS PÚBLICAS --- */}
             <Route path="/" element={
               <main>
                 <Hero PRIMARY_COLOR={PRIMARY_COLOR} />
@@ -47,9 +53,11 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmail PRIMARY_COLOR={PRIMARY_COLOR} />} />
             <Route path="/curso/:id" element={<CourseDetail PRIMARY_COLOR={PRIMARY_COLOR} />} />
             <Route path="/buscar" element={<SearchResultsPage PRIMARY_COLOR={PRIMARY_COLOR} />} />
-            {/* RUTA DINÁMICA DE CATEGORÍAS */}
+            <Route path="/senda-pro-info" element={<ComingSoon PRIMARY_COLOR="#F7A823" />} />
             <Route path="/cursos/:categorySlug" element={<CategoryPage PRIMARY_COLOR={PRIMARY_COLOR} />} />
+            <Route path="/cart" element={<Cart PRIMARY_COLOR={PRIMARY_COLOR} />} />
 
+            {/* --- RUTAS PRIVADAS (Solo usuarios logueados) --- */}
             <Route path="/mi-aprendizaje" element={
               <PrivateRoute>
                 <MyLearning PRIMARY_COLOR={PRIMARY_COLOR} />
@@ -68,13 +76,13 @@ function App() {
               </PrivateRoute>
             } />
 
+            {/* --- RUTA DE ADMINISTRACIÓN (Blindada por Rol) --- */}
             <Route path="/admin/subir-curso" element={
-              <PrivateRoute> 
+              <AdminRoute> 
                 <UploadCourse PRIMARY_COLOR={PRIMARY_COLOR} /> 
-              </PrivateRoute>
+              </AdminRoute>
             }/>
 
-            <Route path="/cart" element={<Cart PRIMARY_COLOR={PRIMARY_COLOR} />} />
           </Routes>
 
           <Footer PRIMARY_COLOR={PRIMARY_COLOR} />

@@ -1,38 +1,76 @@
-export const Hero = ({ PRIMARY_COLOR }) => {
+import React from 'react';
+
+export const Hero = ({ PRIMARY_COLOR = "#F7A823" }) => {
+  // Definimos un color oscuro de contraste basado en tu logo
+  const SECONDARY_DARK = "#1A1A1A"; 
+
   return (
-    <section className={`relative bg-${PRIMARY_COLOR}-700 py-16 sm:py-24 lg:py-32 overflow-hidden`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between">
+    <section className="relative py-16 sm:py-24 lg:py-32 overflow-hidden bg-black">
+      {/* Capa de Gradiente de Fondo: Ahora más profunda para que el texto resalte */}
+      <div 
+        className="absolute inset-0 opacity-80 z-0"
+        style={{ 
+          background: `linear-gradient(135deg, ${SECONDARY_DARK} 0%, #2D2D2D 100%)` 
+        }}
+      ></div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col lg:flex-row items-center justify-between relative z-10">
         
         {/* Contenedor de Texto */}
-        <div className="max-w-xl text-white z-10 lg:pr-12 mb-10 lg:mb-0 bg-white p-8 rounded-xl shadow-2xl text-gray-900">
-          <h1 className="text-4xl sm:text-5xl lg:text-5xl font-extrabold leading-tight mb-4 text-gray-900">
-            Crece en Fe y Habilidad
+        <div className="max-w-xl bg-white p-8 md:p-12 rounded-2xl shadow-2xl text-left border-t-4" 
+             style={{ borderTopColor: PRIMARY_COLOR }}>
+          
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight mb-6 text-gray-900">
+            Mismo Corazón, <br />
+            <span style={{ color: PRIMARY_COLOR }}>Diferente Imagen.</span>
           </h1>
-          <p className="text-lg sm:text-xl font-light mb-8 text-gray-700">
-            Descubre cursos bíblicos, teológicos y de liderazgo para potenciar tu vida espiritual y tu servicio.
+          
+          <p className="text-lg sm:text-xl font-medium mb-8 text-gray-600 leading-relaxed">
+            El amor del Padre está esperando por ti. Inicia hoy tu formación bíblica y de liderazgo con excelencia académica y fuego espiritual.
           </p>
-          <div className="flex space-x-4">
-            <button className={`px-6 py-3 bg-${PRIMARY_COLOR}-700 text-white font-bold rounded-lg hover:bg-${PRIMARY_COLOR}-800 transition duration-150 shadow-lg`}>
-              Empezar
+          
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button 
+              className="px-8 py-4 text-white font-black rounded-xl transition duration-300 shadow-lg transform hover:-translate-y-1"
+              style={{ backgroundColor: PRIMARY_COLOR }}
+            >
+              Empezar ahora
             </button>
-            <button className={`px-6 py-3 border-2 border-${PRIMARY_COLOR}-700 text-${PRIMARY_COLOR}-700 font-bold rounded-lg hover:bg-${PRIMARY_COLOR}-100 transition duration-150`}>
-              Ver Cursos
+            <button 
+              className="px-8 py-4 border-2 font-black rounded-xl transition duration-300 hover:bg-gray-50"
+              style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
+            >
+              Explorar Cursos
             </button>
           </div>
         </div>
 
-        {/* Contenedor de Imagen */}
-        <div className="relative lg:w-1/2 flex justify-center z-10">
-          <img 
-            src="/imagenes/trabajadores-empresriales.jpg" 
-            alt="Ilustración de estudio bíblico" 
-            className="w-full max-w-md h-auto rounded-xl shadow-2xl"
-          />
+        {/* Contenedor de Imagen (El León de Judá) */}
+        <div className="relative lg:w-1/2 flex justify-center mt-12 lg:mt-0">
+          <div className="relative group">
+            {/* Aura decorativa detrás del logo */}
+            <div 
+              className="absolute -inset-4 rounded-full opacity-20 blur-2xl group-hover:opacity-40 transition duration-500"
+              style={{ backgroundColor: PRIMARY_COLOR }}
+            ></div>
+            
+            <img 
+              src="/imagenes/bayit-logo.jpeg" 
+              alt="BAYIT Centro Cristiano Bíblico" 
+              className="relative w-full max-w-sm h-auto rounded-3xl shadow-2xl transform transition duration-500 hover:scale-105 border-4 border-white/10"
+            />
+          </div>
         </div>
 
-        {/* Capa de Gradiente de Fondo */}
-        <div className={`absolute inset-0 bg-gradient-to-r from-${PRIMARY_COLOR}-800 to-${PRIMARY_COLOR}-600 opacity-90 z-0`}></div>
       </div>
+
+      {/* Elemento decorativo sutil en la esquina */}
+      <div 
+        className="absolute bottom-0 right-0 w-64 h-64 opacity-10 pointer-events-none"
+        style={{ 
+          background: `radial-gradient(circle, ${PRIMARY_COLOR} 0%, transparent 70%)` 
+        }}
+      ></div>
     </section>
   );
 };
