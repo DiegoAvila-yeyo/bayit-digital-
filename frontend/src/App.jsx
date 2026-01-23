@@ -1,6 +1,7 @@
+import { useEffect } from 'react'; // Importamos useEffect
+import { useLocation, Routes, Route } from 'react-router-dom'; // Añadimos useLocation
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
-import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar.jsx';
 import { Hero } from './components/Hero.jsx';
 import { CourseCarousel } from './components/CourseCarousel.jsx';
@@ -18,7 +19,7 @@ import { SearchResultsPage } from './pages/SearchResultsPage';
 
 // --- IMPORTACIÓN DE PROTECTORES DE RUTAS ---
 import PrivateRoute from './components/PrivateRoute';
-import AdminRoute from './components/AdminRoute'; // Nuevo guardián de rol
+import AdminRoute from './components/AdminRoute'; 
 
 import MyLearning from './pages/MyLearning'; 
 import EditProfile from './pages/EditProfile'; 
@@ -27,10 +28,23 @@ import { UploadCourse } from './pages/UploadCourse';
 
 import { PRIMARY_COLOR, HOVER_COLOR } from './data.js';
 
+// --- COMPONENTE DE RESET DE SCROLL ---
+// Este componente se encarga de que al navegar, la página suba automáticamente.
+const ScrollToTop = () => {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+};
+
 function App() {
   return (
     <AuthProvider>
       <CartProvider>
+        {/* Componente ScrollToTop: Debe estar dentro del Router (en main.js o index.js) */}
+        <ScrollToTop />
+        
         {/* Toaster centralizado para notificaciones de éxito/error */}
         <Toaster position="top-center" reverseOrder={false} />
         

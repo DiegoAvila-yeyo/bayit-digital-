@@ -21,13 +21,11 @@ export const createCourse = async (req, res) => {
             topic, language 
         } = req.body;
 
-        if (!req.user) {
-            return res.status(401).json({ message: 'No autorizado' });
-        }
+        if (!req.user) return res.status(401).json({ message: 'No autorizado' });
 
-        // Procesamiento de archivos (Multer)
+        // --- CAMBIO AQUÍ: La URL ya viene lista de Cloudinary ---
         let thumbnailPath = req.files?.['thumbnail'] 
-            ? `/${req.files['thumbnail'][0].path.replace(/\\/g, '/')}` 
+            ? req.files['thumbnail'][0].path 
             : '';
 
         const parsedSections = sectionsLayout ? JSON.parse(sectionsLayout) : [];
@@ -40,7 +38,8 @@ export const createCourse = async (req, res) => {
                 if (videoFiles[videoIdx]) {
                     finalLessons.push({
                         title: les.title || 'Lección sin título',
-                        videoUrl: `/${videoFiles[videoIdx].path.replace(/\\/g, '/')}`,
+                        // --- CAMBIO AQUÍ: Usamos la URL directa de Cloudinary ---
+                        videoUrl: videoFiles[videoIdx].path, 
                         section: sec.title,
                         duration: les.duration || "5:00",
                         order: videoIdx
@@ -50,7 +49,6 @@ export const createCourse = async (req, res) => {
             });
         });
 
-        // CREACIÓN DEL CURSO
         const course = new Course({
             title,
             description,
@@ -62,24 +60,18 @@ export const createCourse = async (req, res) => {
             level,
             goal,
             durationHours: parseDurationToHours(finalLessons),
-            thumbnail: thumbnailPath,
+            thumbnail: thumbnailPath, // Se guarda la URL: https://res.cloudinary.com/...
             lessons: finalLessons,
             teacher: req.user._id,
-            published: true // <-- IMPORTANTE: Forzamos true para que aparezca en los filtros
+            published: true
         });
 
-        console.log("🚀 Intentando guardar curso en MongoDB...");
         const savedCourse = await course.save();
-        console.log("✅ Curso guardado y publicado con éxito");
-        
         return res.status(201).json(savedCourse);
 
     } catch (error) {
         console.error("❌ Error detallado:", error);
-        return res.status(400).json({ 
-            message: 'Error al procesar el curso', 
-            error: error.message 
-        });
+        return res.status(400).json({ message: 'Error al procesar el curso', error: error.message });
     }
 };
 // ... (getCourses y getCourseById se mantienen igual)
@@ -89,75 +81,75 @@ export const getCourses = async (req, res) => {
             category, search, level, rating, 
             duration, topic, subcategory, 
             language, priceRange,
-            section // 'featured', 'all', o 'bundle'
+            section 
         } = req.query; 
 
-        let query = { published: true }; // Solo mostrar cursos publicados
+        let query = { published: true };
 
-        // --- LÓGICA DE SECCIÓN 2 (DESTACADOS) ---
-        // Si la petición viene de la sección de destacados, 
-        // devolvemos una lista fija (por rating o fecha) y saltamos los filtros.
+        // 1. SECCIÓN DE DESTACADOS
         if (section === 'featured') {
             const featuredCourses = await Course.find({ published: true })
                 .populate('teacher', 'name profilePicture')
                 .populate('category', 'name')
-                .sort({ rating: -1, createdAt: -1 }) // Los mejor puntuados primero
+                .sort({ rating: -1, createdAt: -1 })
                 .limit(4);
             return res.json(featuredCourses);
         }
 
-        // --- LÓGICA DE SECCIÓN 3 (BÚSQUEDA SELECTIVA CON FILTROS) ---
-        
-        // 1. Filtro de búsqueda por texto
+        // 2. BÚSQUEDA POR TEXTO
         if (search && search.trim() !== '') {
             query.title = { $regex: search, $options: 'i' };
         }
 
-        // 2. Filtros de selección única (evitamos 'Todos' o 'Todas')
+        // 3. FILTROS BÁSICOS
         if (level && level !== 'Todos') query.level = level;
         if (language && language !== 'Todos') query.language = language;
         
-        // 3. Filtro de Rating (Mayor o igual a...)
         if (rating && rating !== '0') {
             query.rating = { $gte: Number(rating) };
         }
 
-        // 4. Filtro de Categoría (Soporta Slug o ID)
+        // 4. LÓGICA DE CATEGORÍA (Corregida)
         if (category && category !== 'Todas' && category !== 'all') {
             const isObjectId = category.match(/^[0-9a-fA-F]{24}$/);
+    
             if (isObjectId) {
                 query.category = category;
             } else {
                 const foundCategory = await Category.findOne({ slug: category });
-                if (foundCategory) query.category = foundCategory._id;
+                if (foundCategory) {
+                    query.category = foundCategory._id;
+                } else {
+                    return res.json([]); 
+                }
             }
-        }
+        } // <--- Aquí se cierra correctamente la lógica de categoría
 
-        // 5. Filtros de Subcategoría y Tema
-        // IMPORTANTE: Asegúrate de que desde el front envíes el ID o el string exacto
+        // 5. SUBCATEGORÍA Y TEMA (Fuera del bloque de categoría para que siempre filtren)
         if (subcategory && subcategory !== 'General' && subcategory !== 'Todas') {
-            query.subcategory = subcategory;
+            query.subcategory = { $regex: new RegExp(`^${subcategory}$`, 'i') };
         }
+        
         if (topic && topic !== 'Espiritualidad' && topic !== 'Todos') {
-            query.topic = topic;
+            query.topic = { $regex: new RegExp(`^${topic}$`, 'i') };
         }
 
-        // 6. Rango de Duración (en horas)
+        // 6. RANGO DE DURACIÓN
         if (duration) {
             if (duration === 'short') query.durationHours = { $lte: 2 };
-            if (duration === 'medium') query.durationHours = { $gt: 2, $lte: 6 };
-            if (duration === 'long') query.durationHours = { $gt: 6, $lte: 16 };
-            if (duration === 'extra') query.durationHours = { $gt: 16 };
+            else if (duration === 'medium') query.durationHours = { $gt: 2, $lte: 6 };
+            else if (duration === 'long') query.durationHours = { $gt: 6, $lte: 16 };
+            else if (duration === 'extra') query.durationHours = { $gt: 16 };
         }
 
-        // 7. Rango de Precio
+        // 7. RANGO DE PRECIO
         if (priceRange) {
             if (priceRange === 'free') query.price = 0;
-            if (priceRange === 'premium') query.price = { $gte: 1, $lte: 50 };
-            if (priceRange === 'elite') query.price = { $gt: 50 };
+            else if (priceRange === 'premium') query.price = { $gte: 1, $lte: 50 };
+            else if (priceRange === 'elite') query.price = { $gt: 50 };
         }
 
-        // Ejecución de la consulta final
+        // 8. EJECUCIÓN
         const courses = await Course.find(query)
             .populate('teacher', 'name email profilePicture')
             .populate('category', 'name slug')
@@ -166,7 +158,7 @@ export const getCourses = async (req, res) => {
         return res.json(courses);
 
     } catch (error) {
-        console.error("Error en getCourses:", error);
+        console.error("❌ Error en getCourses:", error);
         res.status(500).json({ 
             message: "Error al obtener los cursos", 
             error: error.message 

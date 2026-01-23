@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom'; // Vital para capturar la categoría de la URL
 import axios from 'axios';
 import { 
     AdjustmentsHorizontalIcon, 
@@ -15,20 +16,21 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext'; 
 
 const BUNDLE_IDS = [
-    "695ec186235fe122b7c80aef", 
-    "695ec1e2235fe122b7c80b14", 
-    "695ec211235fe122b7c80b19"
+    "697392487c04316a5421c940", 
+    "6973d02e32c43f5217799a30", 
+    "6973d04932c43f5217799a41"
 ];
 const BUNDLE_PRICE = 10.00;
 
 export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
+    const { categorySlug } = useParams(); // <--- Capturamos el parámetro :categorySlug
     const { addToCart } = useCart();
     const { user } = useAuth();
     
-    // ESTADOS INDEPENDIENTES PARA SOLUCIONAR EL BUG 1
-    const [courses, setCourses] = useState([]); // Sección 3 (Filtrados)
-    const [featuredCourses, setFeaturedCourses] = useState([]); // Sección 2 (Fijos)
-    const [bundleItems, setBundleItems] = useState([]); // Sección 1
+    // ESTADOS
+    const [courses, setCourses] = useState([]); 
+    const [featuredCourses, setFeaturedCourses] = useState([]); 
+    const [bundleItems, setBundleItems] = useState([]); 
     
     const [loading, setLoading] = useState(true);
     const [loadingFeatured, setLoadingFeatured] = useState(true);
@@ -59,10 +61,15 @@ export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
         setLoading(true);
         try {
             const params = new URLSearchParams();
+            
+            // 1. Agregamos la categoría actual a la petición
+            if (categorySlug) params.append('category', categorySlug);
+
+            // 2. Agregamos el resto de filtros activos
             Object.entries(filters).forEach(([key, value]) => {
                 if (value) params.append(key, value);
             });
-            // Importante: No enviamos 'section=featured' aquí
+
             const response = await axios.get(`/api/courses?${params.toString()}`);
             setCourses(response.data);
         } catch (error) {
@@ -70,17 +77,16 @@ export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
         } finally {
             setLoading(false);
         }
-    }, [filters]);
+    }, [filters, categorySlug]); // <--- Depende de los filtros y de la categoría en la URL
 
     // --- CARGA DE CURSOS DESTACADOS (SECCIÓN 2) ---
-    // Esta función solo se llama al montar el componente o si el usuario cambia
     const fetchFeatured = async () => {
         setLoadingFeatured(true);
         try {
+            // Los destacados suelen ser globales o por categoría, aquí los pedimos globales
             const response = await axios.get('/api/courses?section=featured');
             setFeaturedCourses(response.data);
             
-            // Aprovechamos para buscar los items del bundle aquí una sola vez
             const bundleData = response.data.filter(c => BUNDLE_IDS.includes(c._id));
             if(bundleData.length > 0) setBundleItems(bundleData);
         } catch (error) {
@@ -90,10 +96,12 @@ export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
         }
     };
 
+    // Efecto para destacados al montar
     useEffect(() => {
         fetchFeatured();
     }, [user]);
 
+    // Efecto para cursos filtrados cada vez que cambia el filtro o la URL
     useEffect(() => {
         fetchFilteredCourses();
     }, [fetchFilteredCourses]);
@@ -111,6 +119,8 @@ export const CategoryPage = ({ PRIMARY_COLOR = "#F7A823" }) => {
         };
         addToCart(bundleObj);
     };
+
+    // ... (Aquí irían las funciones CourseCard y FilterSection que ya tienes)
 
     const CourseCard = ({ course }) => (
         <div className="bg-white rounded-3xl p-4 border border-gray-100 shadow-sm hover:shadow-xl transition-all group overflow-hidden">

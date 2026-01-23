@@ -38,6 +38,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                 setCourse(res.data);
                 
                 if (isPurchased && res.data.lessons?.length > 0) {
+                    // Buscamos la última lección no completada o la primera
                     const lastLesson = res.data.lessons.find(l => 
                         !purchasedData?.completedLessons?.includes(l._id)
                     ) || res.data.lessons[0];
@@ -47,7 +48,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                 }
                 setLoading(false);
             } catch (error) {
-                console.error("Error:", error);
+                console.error("Error cargando el curso:", error);
                 setLoading(false);
             }
         };
@@ -103,7 +104,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
         </div>
     );
 
-    if (!course) return <div className="p-20 text-center font-black text-gray-400">CURSO NO ENCONTRADO</div>;
+    if (!course) return <div className="p-20 text-center font-black text-zinc-400">CURSO NO ENCONTRADO</div>;
 
     const sections = course.lessons.reduce((acc, lesson) => {
         const sectionName = lesson.section || "Fundamentos";
@@ -114,7 +115,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
 
     return (
         <div className="min-h-screen bg-[#FDFDFD]">
-            {/* 1. Cabecera / Reproductor */}
+            {/* 1. Reproductor de Video */}
             <div className="bg-[#0A0A0A] w-full relative">
                 <div className="max-w-[1400px] mx-auto overflow-hidden lg:rounded-b-[3rem] shadow-2xl bg-black aspect-video lg:h-[600px]">
                     {isPurchased ? (
@@ -123,7 +124,8 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                             controls 
                             onEnded={handleVideoEnd}
                             className="w-full h-full object-contain shadow-inner"
-                            src={`http://localhost:5000${activeVideo}`}
+                            /* 🎙️ CAMBIO CLAVE: Quitamos el localhost, Cloudinary nos da la URL completa */
+                            src={activeVideo?.startsWith('http') ? activeVideo : `http://localhost:5000${activeVideo}`}
                         />
                     ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-t from-black via-zinc-900 to-black">
@@ -158,10 +160,9 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                 </div>
             </div>
 
-            {/* 2. Cuerpo del Detalle (Secciones Restauradas) */}
+            {/* 2. Cuerpo del Detalle */}
             <div className="max-w-7xl mx-auto px-4 py-16 grid grid-cols-1 lg:grid-cols-12 gap-16">
                 
-                {/* Lado Izquierdo: Info del Curso */}
                 <div className="lg:col-span-8">
                     <div className="flex items-center gap-4 mb-8">
                         <span className="flex items-center gap-2 bg-zinc-100 text-zinc-600 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-zinc-200">
@@ -193,7 +194,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                     </div>
                 </div>
 
-                {/* Lado Derecho: Temario / Playlist */}
+                {/* 3. Temario / Playlist */}
                 <div className="lg:col-span-4">
                     <div className="sticky top-10 bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8">
                         <h2 className="font-black text-xl mb-8 flex items-center justify-between">

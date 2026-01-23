@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../api/axios'; // 🎙️ CAMBIO 1: Usamos tu instancia configurada con interceptores
+import api from '../api/axios'; 
 import { AuthContext } from '../context/AuthContext';
 
 export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
@@ -14,13 +14,9 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
     useEffect(() => {
         const fetchCourses = async () => {
             try {
-                // 🎙️ CAMBIO 2: Usamos 'api' y la ruta relativa. 
-                // Esto asegura que si cambias el dominio en axios.js, todo siga funcionando.
                 const response = await api.get('/courses');
                 let allCourses = response.data;
 
-                // 🎙️ CAMBIO 3: Lógica de filtrado más segura.
-                // Filtramos para que no aparezcan en la Home cursos que el usuario YA compró.
                 if (user && user.purchasedCourses) {
                     allCourses = allCourses.filter(course => 
                         !user.purchasedCourses.some(pc => {
@@ -38,9 +34,8 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
             }
         };
         fetchCourses();
-    }, [user]); // 🎙️ Se recarga si el usuario inicia sesión o compra algo
+    }, [user]);
 
-    // ... (Lógica de responsive y scroll se mantiene igual porque está excelente)
     useEffect(() => {
         const updateCardsPerPage = () => {
             if (window.innerWidth < 640) setCardsPerPage(1);
@@ -85,7 +80,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row justify-between lg:space-x-12 lg:items-center"> 
                     
-                    {/* Panel de Control Izquierdo */}
                     <div className="lg:w-1/3 mb-12 lg:mb-0 lg:pr-8 flex-shrink-0">
                         <div className="inline-block px-4 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-widest mb-4">
                             Cursos Destacados
@@ -118,7 +112,6 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                         )}
                     </div>
                     
-                    {/* Carrusel */}
                     <div className="lg:w-2/3 relative">
                         <div 
                             ref={scrollRef} 
@@ -133,10 +126,15 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                     style={{ scrollSnapAlign: 'start' }}
                                 >
                                     <div className="h-full w-full relative">
+                                        {/* 🎙️ CAMBIO CLAVE AQUÍ: Lógica simplificada para Cloudinary */}
                                         <img 
-                                            src={curso.thumbnail?.startsWith('http') ? curso.thumbnail : `http://localhost:5000${curso.thumbnail}`} 
+                                            src={curso.thumbnail} 
                                             alt={curso.title} 
                                             className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-90" 
+                                            onError={(e) => {
+                                                // Un pequeño salvavidas por si alguna imagen falla
+                                                e.target.src = 'https://via.placeholder.com/800x450?text=Curso+Espiritual';
+                                            }}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
                                     </div>
@@ -146,7 +144,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                             className="inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mb-3 text-white shadow-lg"
                                             style={{ backgroundColor: PRIMARY_COLOR }}
                                         >
-                                            {curso.category?.name || 'Teología'}
+                                            {curso.category?.name || 'General'}
                                         </div>
                                         
                                         <h3 className="text-xl font-bold text-white line-clamp-2 mb-4 leading-snug min-h-[3.5rem]">
@@ -157,7 +155,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                             <div className="flex items-center">
                                                 <div className="w-1.5 h-1.5 rounded-full mr-2" style={{ backgroundColor: PRIMARY_COLOR }}></div>
                                                 <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                                                    {curso.level || 'General'}
+                                                    {curso.level || 'Todos los niveles'}
                                                 </span>
                                             </div>
                                             <div className="text-right">
