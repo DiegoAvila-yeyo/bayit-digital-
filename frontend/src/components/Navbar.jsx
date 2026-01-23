@@ -46,7 +46,7 @@ const Navbar = ({ PRIMARY_COLOR }) => {
         const delayDebounceFn = setTimeout(async () => {
             if (searchTerm.trim().length > 1) {
                 try {
-                    const res = await axios.get(`http://localhost:5000/api/courses?search=${searchTerm}`);
+                    const res = await api.get(`/courses?search=${searchTerm}`);
                     setSuggestions(res.data.slice(0, 6)); // Mostramos máximo 6 sugerencias
                     setShowSuggestions(true);
                 } catch (error) {
@@ -156,7 +156,7 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                                             className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
                                         >
                                             <img 
-                                                src={`http://localhost:5000${course.thumbnail}`} 
+                                                src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${course.thumbnail}`} 
                                                 className="w-12 h-8 object-cover rounded shadow-sm bg-gray-200"
                                                 alt="" 
                                             />

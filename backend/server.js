@@ -25,16 +25,23 @@ conectarDB();
 
 // --- 1. CONFIGURACIÓN DE ACCESO (CORS) ---
 // Debe ir antes que cualquier otro middleware para permitir peticiones del frontend
-const allowedOrigins = [process.env.FRONTEND_URL || 'http://localhost:5173'];
+const allowedOrigins = [
+  'https://bayit-frontend.vercel.app', // Agrega tu URL de Vercel directamente
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
 app.use(cors({
   origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como Postman) o si está en la lista
     if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
+      console.log("Origen bloqueado por CORS:", origin); // Esto te ayudará a debuguear
       callback(new Error('No permitido por CORS'));
     }
   },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Agregamos OPTIONS
   credentials: true
 }));
 

@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react'; 
-import axios from 'axios';
+import api from '../api/axios';
 import { toast } from 'react-hot-toast';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
@@ -30,9 +30,7 @@ export const AuthProvider = ({ children }) => {
             const token = localStorage.getItem('token');
             if (token) {
                 try {
-                    const res = await axios.get('http://localhost:5000/api/users/me', {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
+                    const res = await api.get('/users/me');
                     setUser({ ...res.data }); 
                     localStorage.setItem('userInfo', JSON.stringify(res.data));
                 } catch (error) {
@@ -50,7 +48,7 @@ export const AuthProvider = ({ children }) => {
             const result = await signInWithPopup(auth, googleProvider);
             const idToken = await result.user.getIdToken();
 
-            const res = await axios.post('http://localhost:5000/api/auth/social-login', {}, {
+            const res = await api.post('/auth/social-login', {}, {
                 headers: { Authorization: `Bearer ${idToken}` }
             });
 
@@ -76,9 +74,7 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             localStorage.setItem('token', token);
             try {
-                const res = await axios.get('http://localhost:5000/api/users/me', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
+                const res = await api.get('/users/me');
                 const datosCompletos = res.data;
                 localStorage.setItem('userInfo', JSON.stringify(datosCompletos));
                 setUser(datosCompletos);

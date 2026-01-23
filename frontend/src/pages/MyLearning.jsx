@@ -133,7 +133,7 @@ const MyLearning = ({ PRIMARY_COLOR = "#F7A823" }) => {
                             
                             const imgUrl = courseData.thumbnail?.startsWith('http') 
                                 ? courseData.thumbnail 
-                                : `http://localhost:5000${courseData.thumbnail}`;
+                                : `${api.defaults.baseURL.replace('/api', '')}${courseData.thumbnail}`;;
 
                             return (
                                 <div key={item._id} className="bg-white rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden flex flex-col group relative">

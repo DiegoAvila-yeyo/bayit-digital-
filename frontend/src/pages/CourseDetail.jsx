@@ -124,8 +124,10 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                             controls 
                             onEnded={handleVideoEnd}
                             className="w-full h-full object-contain shadow-inner"
-                            /* 🎙️ CAMBIO CLAVE: Quitamos el localhost, Cloudinary nos da la URL completa */
-                            src={activeVideo?.startsWith('http') ? activeVideo : `http://localhost:5000${activeVideo}`}
+                            // Usamos el baseURL de nuestra instancia de API para que se adapte a Vercel automáticamente
+                            src={activeVideo?.startsWith('http') 
+                            ? activeVideo 
+                            : `${api.defaults.baseURL.replace('/api', '')}${activeVideo}`}
                         />
                     ) : (
                         <div className="w-full h-full flex flex-col items-center justify-center text-white p-8 text-center bg-gradient-to-t from-black via-zinc-900 to-black">

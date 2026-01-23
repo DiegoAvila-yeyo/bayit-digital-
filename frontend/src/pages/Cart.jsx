@@ -1,7 +1,7 @@
 import React, { useState, useContext } from 'react'; // Añadimos useState y useContext
 import { useCart } from '../context/CartContext';
 import { Link, useNavigate } from 'react-router-dom'; // Añadimos useNavigate
-import { TrashIcon, HeartIcon, ArrowRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { TrashIcon, ArrowRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
 import { AuthContext } from '../context/AuthContext'; // Para actualizar el usuario globalmente
 import api from '../api/axios'; // Nuestra instancia refactorizada
@@ -96,9 +96,13 @@ export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                     {/* Imagen */}
                                     <div className="relative w-full sm:w-48 h-32 flex-shrink-0 overflow-hidden rounded-xl bg-zinc-200">
                                         <img 
-                                            src={item.thumbnail?.startsWith('http') ? item.thumbnail : `http://localhost:5000${item.thumbnail}`} 
-                                            alt={item.title} 
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                                          src={
+                                          item.thumbnail?.startsWith('http') 
+                                          ? item.thumbnail 
+                                          : `${api.defaults.baseURL.replace('/api', '')}${item.thumbnail}`
+                                         } 
+                                          alt={item.title} 
+                                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
                                         />
                                         <div className="absolute inset-0 bg-black/5"></div>
                                     </div>

@@ -45,7 +45,7 @@ const Register = ({ PRIMARY_COLOR }) => {
 
         try {
             // Llamada a tu endpoint de registro manual
-            const response = await axios.post('http://localhost:5000/api/auth/register', {
+            const response = await api.post('/auth/register', {
                 name, 
                 email, 
                 password

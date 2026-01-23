@@ -51,11 +51,7 @@ const EditProfile = ({ PRIMARY_COLOR = "#F7A823" }) => {
             const imageUrl = res.data.secure_url;
             
             // Actualizar solo la imagen en el backend
-            const { data: updatedUser } = await axios.put(
-                'http://localhost:5000/api/auth/profile', 
-                { profilePicture: imageUrl },
-                { headers: { Authorization: `Bearer ${user.token}` } }
-            );
+            const { data: updatedUser } = await api.put('/auth/profile', { profilePicture: imageUrl });
             
             // ACTUALIZACIÓN CRÍTICA DEL CONTEXTO
             const newUserState = { ...user, ...updatedUser };
@@ -72,11 +68,7 @@ const EditProfile = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
         try {
-            const { data: updatedUser } = await axios.put(
-                'http://localhost:5000/api/auth/profile', 
-                formData, 
-                { headers: { Authorization: `Bearer ${user.token}` } }
-            );
+            const { data: updatedUser } = await api.put('/auth/profile', { profilePicture: imageUrl });
             
             // Unimos el token viejo con los datos nuevos
             const newUserState = { ...user, ...updatedUser };

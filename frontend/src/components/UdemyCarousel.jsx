@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { CourseCardHover } from './CourseCardHover';
-import axios from 'axios';
+import api from '../api/axios';
 import { AuthContext } from '../context/AuthContext';
 
 export const UdemyCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
@@ -16,7 +16,7 @@ export const UdemyCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const fetchTrendingCourses = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:5000/api/courses');
+        const response = await api.get('/courses');
         
         let finalCourses = response.data;
 

@@ -1,6 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axios';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'; 
 import { auth } from '../firebase'; 
 import { AuthContext } from '../context/AuthContext';
@@ -21,7 +21,7 @@ const Login = ({ PRIMARY_COLOR }) => {
         }
 
         try {
-            const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+            const res = await api.post('/auth/login', { email, password });
             const success = await login(res.data); 
 
             if (success) {
@@ -43,7 +43,7 @@ const handleGoogleLogin = async () => {
 
         // 2. ENVIAMOS LA PETICIÓN CON EL TOKEN EN EL HEADER
         // Nota: Enviamos el body vacío {} porque el backend sacará los datos del token
-        const res = await axios.post('http://localhost:5000/api/auth/social-login', {}, {
+        const res = await api.post('/auth/social-login', {}, {
             headers: {
                 'Authorization': `Bearer ${idToken}`
             }
