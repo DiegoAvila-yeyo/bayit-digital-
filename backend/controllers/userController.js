@@ -139,3 +139,63 @@ export const updateCart = async (req, res) => {
         res.status(500).json({ message: "Error al actualizar carrito" });
     }
 };
+export const checkoutCart = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        // Recibimos los items del carrito desde el frontend
+        const { cartItems } = req.body; 
+
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ message: "Usuario no encontrado" });
+
+        if (!cartItems || cartItems.length === 0) {
+            return res.status(400).json({ message: "La cesta está vacía" });
+        }
+
+        // 1. EXTRAER TODOS LOS IDs DE CURSOS (Incluyendo los de los bundles)
+        // Usamos .flatMap para que si es bundle, nos traiga el array de cursos interno
+        const coursesToBuy = cartItems.flatMap(item => 
+            item.itemType === 'bundle' ? item.courses : item._id
+        );
+
+        // 2. FILTRAR CURSOS QUE EL USUARIO YA TIENE
+        // Esto evita que el array de purchasedCourses se llene de duplicados
+        const onlyNewCourses = coursesToBuy.filter(courseId => 
+            !user.purchasedCourses.some(pc => pc.courseId && pc.courseId.toString() === courseId.toString())
+        );
+
+        if (onlyNewCourses.length > 0) {
+            // 3. AGREGAR LOS NUEVOS CURSOS
+            onlyNewCourses.forEach(id => {
+                user.purchasedCourses.push({
+                    courseId: id,
+                    completedLessons: [],
+                    enrolledAt: new Date()
+                });
+            });
+
+            // 4. ACTUALIZAR ACTIVIDAD Y RACHA (Igual que en updateProgress)
+            // Ya que comprar es una "actividad", le damos ese beneficio al usuario
+            user.lastActivity = new Date();
+            // (Opcional: podrías incrementar la racha aquí también si quieres)
+        }
+
+        // 5. VACIAR EL CARRITO EN LA DB
+        user.cart = [];
+        
+        await user.save();
+
+        // 6. RESPUESTA SINCRONIZADA
+        // Usamos tu helper estrella para que el frontend reciba todo masticado
+        const updatedUser = await getPopulatedUser(userId);
+
+        res.status(200).json({ 
+            message: "¡Cesta procesada con éxito!", 
+            user: updatedUser 
+        });
+
+    } catch (error) {
+        console.error("Error en checkoutCart:", error);
+        res.status(500).json({ message: "Error al procesar la compra de la cesta" });
+    }
+};

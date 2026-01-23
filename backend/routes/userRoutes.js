@@ -1,6 +1,6 @@
 import express from 'express';
 const router = express.Router();
-import { getMe, updateProgress, simulatePurchase, updateCart } from '../controllers/userController.js';
+import { getMe, updateProgress, simulatePurchase, updateCart, checkoutCart } from '../controllers/userController.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 // --- RUTAS DE USUARIO ---
@@ -13,6 +13,8 @@ router.post('/update-progress', protect, updateProgress);
 
 // Simular compra (Añadimos 'protect' para evitar compras anónimas o fallos de ID)
 router.post('/simulate-purchase', protect, simulatePurchase);
+
+router.post('/checkout-cart', protect, checkoutCart);
 
 
 router.put('/update-cart', protect, updateCart);

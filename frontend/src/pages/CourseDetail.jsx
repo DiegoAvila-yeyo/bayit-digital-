@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axios'; 
 import { AuthContext } from '../context/AuthContext';
 import { 
     ChevronDownIcon, 
@@ -24,8 +24,9 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const [activeLessonId, setActiveLessonId] = useState(null);
     const [openSection, setOpenSection] = useState(0);
 
-    // Verificamos propiedad y carrito
-    const purchasedData = user?.purchasedCourses?.find(item => (item.courseId?._id || item.courseId) === id);
+    const purchasedData = user?.purchasedCourses?.find(item => 
+        (item.courseId?._id || item.courseId) === id
+    );
     const isPurchased = !!purchasedData;
     const isInCart = user?.cart?.some(item => (item._id || item) === id);
 
@@ -33,7 +34,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
         window.scrollTo(0, 0);
         const fetchCourseDetail = async () => {
             try {
-                const res = await axios.get(`http://localhost:5000/api/courses/${id}`);
+                const res = await api.get(`/courses/${id}`);
                 setCourse(res.data);
                 
                 if (isPurchased && res.data.lessons?.length > 0) {
@@ -59,12 +60,8 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
             return navigate('/login');
         }
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:5000/api/users/cart/add', 
-                { courseId: id }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setUser({ ...res.data.user });
+            const res = await api.post('/users/cart/add', { courseId: id });
+            setUser(res.data.user);
             localStorage.setItem('userInfo', JSON.stringify(res.data.user));
             toast.success("Añadido al carrito ministerial");
         } catch (error) {
@@ -75,12 +72,8 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const handleSimulatedPurchase = async () => {
         if (!user) return navigate('/login');
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:5000/api/users/simulate-purchase', 
-                { courseId: id }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            setUser({ ...res.data.user });
+            const res = await api.post('/users/simulate-purchase', { courseId: id });
+            setUser(res.data.user);
             localStorage.setItem('userInfo', JSON.stringify(res.data.user));
             toast.success("¡Bienvenido a la cofradía de estudio!");
         } catch (error) {
@@ -91,13 +84,12 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const handleVideoEnd = async () => {
         if (!isPurchased || !activeLessonId || !user) return;
         try {
-            const token = localStorage.getItem('token');
-            const res = await axios.post('http://localhost:5000/api/users/update-progress', 
-                { courseId: id, lessonId: activeLessonId }, 
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const res = await api.post('/users/update-progress', { 
+                courseId: id, 
+                lessonId: activeLessonId 
+            });
             const updatedUser = res.data.user;
-            setUser({ ...updatedUser });
+            setUser(updatedUser);
             localStorage.setItem('userInfo', JSON.stringify(updatedUser));
             toast.success("Progreso guardado", { icon: '📖' });
         } catch (error) {
@@ -122,7 +114,7 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
 
     return (
         <div className="min-h-screen bg-[#FDFDFD]">
-            {/* Cabecera / Reproductor */}
+            {/* 1. Cabecera / Reproductor */}
             <div className="bg-[#0A0A0A] w-full relative">
                 <div className="max-w-[1400px] mx-auto overflow-hidden lg:rounded-b-[3rem] shadow-2xl bg-black aspect-video lg:h-[600px]">
                     {isPurchased ? (
@@ -166,10 +158,10 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                 </div>
             </div>
 
-            {/* Cuerpo del Detalle */}
+            {/* 2. Cuerpo del Detalle (Secciones Restauradas) */}
             <div className="max-w-7xl mx-auto px-4 py-16 grid grid-cols-1 lg:grid-cols-12 gap-16">
                 
-                {/* Información Principal */}
+                {/* Lado Izquierdo: Info del Curso */}
                 <div className="lg:col-span-8">
                     <div className="flex items-center gap-4 mb-8">
                         <span className="flex items-center gap-2 bg-zinc-100 text-zinc-600 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-zinc-200">
@@ -201,13 +193,13 @@ export const CourseDetail = ({ PRIMARY_COLOR = "#F7A823" }) => {
                     </div>
                 </div>
 
-                {/* Temario Estilo Sidebar */}
+                {/* Lado Derecho: Temario / Playlist */}
                 <div className="lg:col-span-4">
                     <div className="sticky top-10 bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 border border-zinc-100 p-8">
                         <h2 className="font-black text-xl mb-8 flex items-center justify-between">
                             TEMARIO DEL CURSO
                             <span className="text-[10px] bg-zinc-100 px-3 py-1 rounded-full text-zinc-400">
-                                {course.lessons.length} LECCIONES
+                                {course.lessons?.length} LECCIONES
                             </span>
                         </h2>
                         

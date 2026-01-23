@@ -1,11 +1,46 @@
-import React from 'react';
+import React, { useState, useContext } from 'react'; // Añadimos useState y useContext
 import { useCart } from '../context/CartContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom'; // Añadimos useNavigate
 import { TrashIcon, HeartIcon, ArrowRightIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/react/24/solid';
+import { AuthContext } from '../context/AuthContext'; // Para actualizar el usuario globalmente
+import api from '../api/axios'; // Nuestra instancia refactorizada
+import { toast } from 'react-hot-toast';
 
 export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
-    const { cartItems, removeFromCart, totalPrice } = useCart();
+    const { cartItems, removeFromCart, totalPrice, clearCart } = useCart();
+    const { user, setUser } = useContext(AuthContext); // Obtenemos el setter del usuario
+    const navigate = useNavigate();
+    const [isProcessing, setIsProcessing] = useState(false); // Estado para el botón
+
+    // Lógica de compra final
+    const handleCheckout = async () => {
+        if (!user) {
+            toast.error("Debes iniciar sesión para finalizar la compra");
+            return navigate('/login');
+        }
+
+        setIsProcessing(true);
+        try {
+            // Llamamos al nuevo controlador que creamos en el backend
+            const res = await api.post('/users/checkout-cart', { cartItems });
+            
+            // 1. Actualizamos el usuario global (esto desbloquea los cursos en la UI)
+            setUser(res.data.user);
+            localStorage.setItem('userInfo', JSON.stringify(res.data.user));
+            
+            // 2. Limpiamos el carrito local
+            clearCart();
+            
+            toast.success("¡Compra exitosa! Tus cursos ya están disponibles.");
+            navigate('/profile'); // Redirigimos al perfil o biblioteca
+        } catch (error) {
+            console.error("Error en el checkout:", error);
+            toast.error(error.response?.data?.message || "Error al procesar el pago");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     if (cartItems.length === 0) {
         return (
@@ -52,7 +87,6 @@ export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                     key={item._id} 
                                     className={`bg-white rounded-2xl p-4 sm:p-6 shadow-sm border ${isBundle ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'} flex flex-col sm:flex-row gap-6 transition-all hover:shadow-md group relative overflow-hidden`}
                                 >
-                                    {/* Indicador visual de Bundle */}
                                     {isBundle && (
                                         <div className="absolute top-0 right-0 bg-orange-500 text-white text-[8px] font-black uppercase px-4 py-1 rounded-bl-xl tracking-widest">
                                             Ahorro 40%
@@ -105,7 +139,6 @@ export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                             </span>
                                         </div>
 
-                                        {/* Acciones */}
                                         <div className="mt-auto flex items-center gap-6 border-t border-gray-50 pt-4">
                                             <button 
                                                 onClick={() => removeFromCart(item._id)} 
@@ -113,11 +146,6 @@ export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                             >
                                                 <TrashIcon className="h-4 w-4" /> Eliminar
                                             </button>
-                                            {!isBundle && (
-                                                <button className="flex items-center gap-1.5 text-xs font-bold text-gray-400 hover:text-gray-900 transition-colors uppercase tracking-widest">
-                                                    <HeartIcon className="h-4 w-4" /> Guardar
-                                                </button>
-                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -153,11 +181,18 @@ export const Cart = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                 )}
                             </div>
 
+                            {/* BOTÓN CONECTADO AL BACKEND */}
                             <button 
-                                className="w-full py-5 text-white font-black text-lg rounded-2xl shadow-lg transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3"
+                                onClick={handleCheckout}
+                                disabled={isProcessing}
+                                className={`w-full py-5 text-white font-black text-lg rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3 ${isProcessing ? 'opacity-70 cursor-not-allowed' : 'hover:scale-[1.02] active:scale-95'}`}
                                 style={{ backgroundColor: PRIMARY_COLOR, boxShadow: `0 10px 20px -10px ${PRIMARY_COLOR}88` }}
                             >
-                                Proceder al pago <ArrowRightIcon className="h-5 w-5 stroke-[3px]" />
+                                {isProcessing ? (
+                                    'Procesando...' 
+                                ) : (
+                                    <>Proceder al pago <ArrowRightIcon className="h-5 w-5 stroke-[3px]" /></>
+                                )}
                             </button>
 
                             <div className="mt-8 pt-8 border-t border-gray-100">

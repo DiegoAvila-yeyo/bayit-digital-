@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useContext } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axios'; // 🎙️ CAMBIO 1: Usamos tu instancia configurada con interceptores
 import { AuthContext } from '../context/AuthContext';
 
 export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
@@ -14,9 +14,13 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
     useEffect(() => {
         const fetchCourses = async () => {
             try {
-                const response = await axios.get('http://localhost:5000/api/courses');
+                // 🎙️ CAMBIO 2: Usamos 'api' y la ruta relativa. 
+                // Esto asegura que si cambias el dominio en axios.js, todo siga funcionando.
+                const response = await api.get('/courses');
                 let allCourses = response.data;
 
+                // 🎙️ CAMBIO 3: Lógica de filtrado más segura.
+                // Filtramos para que no aparezcan en la Home cursos que el usuario YA compró.
                 if (user && user.purchasedCourses) {
                     allCourses = allCourses.filter(course => 
                         !user.purchasedCourses.some(pc => {
@@ -25,6 +29,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                         })
                     );
                 }
+                
                 setCourses(allCourses);
                 setLoading(false);
             } catch (error) {
@@ -33,8 +38,9 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
             }
         };
         fetchCourses();
-    }, [user]);
+    }, [user]); // 🎙️ Se recarga si el usuario inicia sesión o compra algo
 
+    // ... (Lógica de responsive y scroll se mantiene igual porque está excelente)
     useEffect(() => {
         const updateCardsPerPage = () => {
             if (window.innerWidth < 640) setCardsPerPage(1);
@@ -96,16 +102,14 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                             <div className="hidden lg:flex space-x-4">
                                 <button 
                                     onClick={() => handleScroll('prev')}
-                                    disabled={currentPage === 0}
-                                    className={`p-4 border-2 rounded-full transition-all duration-300 ${currentPage === 0 ? 'opacity-10 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow-md active:scale-90'}`}
+                                    className={`p-4 border-2 rounded-full transition-all duration-300 ${currentPage === 0 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-gray-50 hover:shadow-md active:scale-90'}`}
                                     style={{ borderColor: PRIMARY_COLOR, color: PRIMARY_COLOR }}
                                 >
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                                 </button>
                                 <button 
                                     onClick={() => handleScroll('next')}
-                                    disabled={currentPage === totalPages - 1}
-                                    className={`p-4 border-2 rounded-full transition-all duration-300 ${currentPage === totalPages - 1 ? 'opacity-10 cursor-not-allowed' : 'hover:shadow-lg active:scale-90'}`}
+                                    className={`p-4 border-2 rounded-full transition-all duration-300 ${currentPage === totalPages - 1 ? 'opacity-20 cursor-not-allowed' : 'hover:shadow-lg active:scale-90'}`}
                                     style={{ backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, color: 'white' }}
                                 >
                                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -128,19 +132,16 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                                     className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] h-[440px] bg-black rounded-3xl shadow-2xl overflow-hidden group relative transition-all duration-500 hover:-translate-y-3"
                                     style={{ scrollSnapAlign: 'start' }}
                                 >
-                                    {/* Imagen de Fondo */}
                                     <div className="h-full w-full relative">
                                         <img 
                                             src={curso.thumbnail?.startsWith('http') ? curso.thumbnail : `http://localhost:5000${curso.thumbnail}`} 
                                             alt={curso.title} 
-                                            className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-80 group-hover:opacity-100" 
+                                            className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-90" 
                                         />
-                                        {/* Overlay para legibilidad */}
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-90"></div>
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
                                     </div>
 
-                                    {/* Contenido flotante sobre la imagen */}
-                                    <div className="absolute inset-x-0 bottom-0 p-6 backdrop-blur-[2px]"> 
+                                    <div className="absolute inset-x-0 bottom-0 p-6 backdrop-blur-[1px]"> 
                                         <div 
                                             className="inline-block px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest mb-3 text-white shadow-lg"
                                             style={{ backgroundColor: PRIMARY_COLOR }}

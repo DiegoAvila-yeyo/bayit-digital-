@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import axios from 'axios';
+import api from '../api/axios';
 import { AuthContext } from './AuthContext';
 
 const CartContext = createContext();
@@ -22,15 +22,12 @@ export const CartProvider = ({ children }) => {
     const syncCartWithDB = async (newCart) => {
         if (!user) return;
         try {
-            const token = localStorage.getItem('token');
-            // Solo enviamos IDs de cursos reales al backend para evitar errores con los IDs temporales de los bundles
             const courseIds = newCart
                 .map(item => item.itemType === 'bundle' ? item.courses : item._id)
                 .flat();
 
-            await axios.put('http://localhost:5000/api/users/update-cart', 
-                { cart: [...new Set(courseIds)] }, // Usamos Set para evitar duplicados
-                { headers: { Authorization: `Bearer ${token}` } }
+            await api.put('/users/update-cart', 
+                { cart: [...new Set(courseIds)] }
             );
         } catch (error) {
             console.error("Error al sincronizar carrito");
