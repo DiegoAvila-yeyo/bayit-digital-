@@ -5,6 +5,8 @@ Welcome to the platform where technology meets personal growth! This project is 
 ## 🚀 Deployment
 The application is currently deployed and fully functional at:
 https://bayit-frontend.vercel.app
+admin account: diegoavila031315@gmail.com
+Password: Yeyo031315!
 
 ---
 
