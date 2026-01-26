@@ -11,6 +11,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const [currentPage, setCurrentPage] = useState(0);
     const [cardsPerPage, setCardsPerPage] = useState(3);
 
+    // 1. Fetch de datos
     useEffect(() => {
         const fetchCourses = async () => {
             try {
@@ -36,6 +37,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
         fetchCourses();
     }, [user]);
 
+    // 2. Lógica Responsive para saber cuántas cards mostrar
     useEffect(() => {
         const updateCardsPerPage = () => {
             if (window.innerWidth < 640) setCardsPerPage(1);
@@ -47,6 +49,7 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
         return () => window.removeEventListener('resize', updateCardsPerPage);
     }, []);
 
+    // --- LA LÍNEA QUE FALTABA ---
     const totalPages = Math.ceil(courses.length / cardsPerPage);
 
     const handleScroll = (direction) => {
@@ -76,22 +79,24 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
     if (courses.length === 0) return null; 
 
     return (
-        <section className="py-16 sm:py-24 bg-white overflow-hidden">
+        <section className="py-12 sm:py-24 bg-white overflow-hidden">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex flex-col lg:flex-row justify-between lg:space-x-12 lg:items-center"> 
+                <div className="flex flex-col lg:flex-row justify-between lg:items-center"> 
                     
-                    <div className="lg:w-1/3 mb-12 lg:mb-0 lg:pr-8 flex-shrink-0">
-                        <div className="inline-block px-4 py-1 rounded-full bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-widest mb-4">
+                    {/* Texto e Indicadores */}
+                    <div className="lg:w-1/3 mb-8 lg:mb-0 lg:pr-8 flex-shrink-0 text-center lg:text-left">
+                        <div className="inline-block px-4 py-1 rounded-full bg-gray-100 text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-4">
                             Cursos Destacados
                         </div>
-                        <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6 leading-tight">
-                            Tu próximo <br /> 
+                        <h2 className="text-3xl lg:text-5xl font-black text-gray-900 mb-4 leading-tight">
+                            Tu próximo <br className="hidden sm:block" /> 
                             <span style={{ color: PRIMARY_COLOR }}>desafío espiritual</span>
                         </h2>
-                        <p className="text-gray-600 text-lg mb-8 leading-relaxed"> 
+                        <p className="text-gray-600 text-lg mb-8 leading-relaxed hidden sm:block"> 
                             Inicia hoy una formación que trasciende lo académico para tocar lo eterno.
                         </p>
                         
+                        {/* Botones de navegación (visibles solo en desktop, en móvil se usa swipe) */}
                         {totalPages > 1 && (
                             <div className="hidden lg:flex space-x-4">
                                 <button 
@@ -112,29 +117,24 @@ export const CourseCarousel = ({ PRIMARY_COLOR = "#F7A823" }) => {
                         )}
                     </div>
                     
+                    {/* Carrusel */}
                     <div className="lg:w-2/3 relative">
                         <div 
                             ref={scrollRef} 
-                            className="flex overflow-x-hidden space-x-6 pb-8 w-full"
-                            style={{ scrollSnapType: 'x mandatory' }} 
+                            className="flex overflow-x-auto lg:overflow-x-hidden space-x-4 sm:space-x-6 pb-8 snap-x snap-mandatory scrollbar-hide"
                         > 
                             {courses.map((curso) => (
                                 <Link 
                                     key={curso._id}
                                     to={`/curso/${curso._id}`} 
-                                    className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] h-[440px] bg-black rounded-3xl shadow-2xl overflow-hidden group relative transition-all duration-500 hover:-translate-y-3"
-                                    style={{ scrollSnapAlign: 'start' }}
+                                    className="flex-shrink-0 w-[85%] sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] h-[400px] sm:h-[440px] bg-black rounded-3xl shadow-2xl overflow-hidden group relative transition-all duration-500 hover:-translate-y-3 snap-start"
                                 >
                                     <div className="h-full w-full relative">
-                                        {/* 🎙️ CAMBIO CLAVE AQUÍ: Lógica simplificada para Cloudinary */}
                                         <img 
                                             src={curso.thumbnail} 
                                             alt={curso.title} 
                                             className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-110 opacity-70 group-hover:opacity-90" 
-                                            onError={(e) => {
-                                                // Un pequeño salvavidas por si alguna imagen falla
-                                                e.target.src = 'https://via.placeholder.com/800x450?text=Curso+Espiritual';
-                                            }}
+                                            onError={(e) => { e.target.src = 'https://via.placeholder.com/800x450?text=Curso+Espiritual'; }}
                                         />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent"></div>
                                     </div>

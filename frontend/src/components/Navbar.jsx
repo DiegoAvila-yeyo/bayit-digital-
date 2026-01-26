@@ -1,6 +1,6 @@
 import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api/axios'; 
 import { AuthContext } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { getCategories } from '../services/categoryService';
@@ -11,24 +11,25 @@ import {
     MagnifyingGlassIcon,
     HeartIcon,
     ListBulletIcon,
-    PlusCircleIcon
+    PlusCircleIcon,
+    Bars3Icon,
+    XMarkIcon
 } from '@heroicons/react/24/outline';
 
-const Navbar = ({ PRIMARY_COLOR }) => {
+const Navbar = ({ PRIMARY_COLOR = "#F7A823" }) => {
     const { user, logout } = useContext(AuthContext);
     const { cartItems } = useCart();
     const navigate = useNavigate();
 
-    // ESTADOS
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [categories, setCategories] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     
-    const searchRef = useRef(null); // Para detectar clics fuera del buscador
+    const searchRef = useRef(null);
 
-    // 1. CARGAR CATEGORÍAS AL INICIAR
     useEffect(() => {
         const fetchCategories = async () => {
             try {
@@ -41,13 +42,12 @@ const Navbar = ({ PRIMARY_COLOR }) => {
         fetchCategories();
     }, []);
 
-    // 2. LÓGICA DE BÚSQUEDA EN VIVO (LIVE SEARCH)
     useEffect(() => {
         const delayDebounceFn = setTimeout(async () => {
             if (searchTerm.trim().length > 1) {
                 try {
                     const res = await api.get(`/courses?search=${searchTerm}`);
-                    setSuggestions(res.data.slice(0, 6)); // Mostramos máximo 6 sugerencias
+                    setSuggestions(res.data.slice(0, 6));
                     setShowSuggestions(true);
                 } catch (error) {
                     console.error("Error buscando sugerencias", error);
@@ -56,69 +56,49 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                 setSuggestions([]);
                 setShowSuggestions(false);
             }
-        }, 300); // Debounce de 300ms
-
+        }, 300);
         return () => clearTimeout(delayDebounceFn);
     }, [searchTerm]);
 
-    // 3. CERRAR SUGERENCIAS AL HACER CLIC FUERA
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (searchRef.current && !searchRef.current.contains(event.target)) {
-                setShowSuggestions(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    // MANEJADORES DE EVENTOS
     const handleSearchSubmit = (e) => {
         if (e.key === 'Enter' && searchTerm.trim() !== '') {
             navigate(`/buscar?q=${encodeURIComponent(searchTerm.trim())}`);
             setShowSuggestions(false);
+            setIsMobileMenuOpen(false);
         }
-    };
-
-    const handleSelectSuggestion = (courseId) => {
-        navigate(`/curso/${courseId}`);
-        setShowSuggestions(false);
-        setSearchTerm('');
     };
 
     const getInitials = (name) => {
         if (!name) return 'BD';
         const parts = name.trim().split(' ');
-        return parts.length > 1 
-            ? (parts[0][0] + parts[1][0]).toUpperCase() 
-            : parts[0].substring(0, 2).toUpperCase();
+        return parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].substring(0, 2).toUpperCase();
     };
 
     return (
-        <nav className="bg-white shadow-sm py-2 px-4 md:px-8 sticky top-0 z-50 w-full border-b border-gray-100">
-            <div className="w-full flex items-center justify-between gap-4 md:gap-8">
+        <nav className="bg-white shadow-sm sticky top-0 z-[100] w-full border-b border-gray-100">
+            <div className="max-w-[1920px] mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-2 md:gap-8">
                 
-                {/* IZQUIERDA: LOGO Y CATEGORÍAS */}
-                <div className="flex items-center gap-6">
-                    <Link to="/" className="text-xl md:text-2xl font-bold tracking-tighter shrink-0" style={{ color: PRIMARY_COLOR }}>
-                        BAYIT<span className="text-gray-900 hidden xs:inline"> DIGITAL</span>
+                {/* IZQUIERDA: MOBILE MENU + LOGO */}
+                <div className="flex items-center gap-2 md:gap-4">
+                    <button 
+                        onClick={() => setIsMobileMenuOpen(true)}
+                        className="lg:hidden p-2 hover:bg-gray-100 rounded-full transition"
+                    >
+                        <Bars3Icon className="h-6 w-6 text-gray-700" />
+                    </button>
+
+                    <Link to="/" className="text-lg md:text-2xl font-black tracking-tighter shrink-0 flex items-center" style={{ color: PRIMARY_COLOR }}>
+                        BAYIT<span className="text-gray-900 ml-1 hidden xs:inline">DIGITAL</span>
                     </Link>
 
-                    <div className="hidden lg:block relative group py-4">
-                        <button className="flex items-center text-sm font-medium text-gray-700 hover:text-gray-900 transition gap-1 outline-none">
-                            <ListBulletIcon className="h-5 w-5" />
+                    {/* Categorías Desktop */}
+                    <div className="hidden lg:block relative group ml-4">
+                        <button className="flex items-center text-sm font-semibold text-gray-600 hover:text-gray-900 transition gap-1 py-4">
                             Categorías
                         </button>
-                        <div className="absolute top-full left-0 w-64 bg-white shadow-2xl rounded-xl border border-gray-100 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[101]">
-                            <div className="px-4 py-2 border-b border-gray-50 mb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Explorar temas</span>
-                            </div>
+                        <div className="absolute top-full left-0 w-64 bg-white shadow-xl rounded-xl border border-gray-100 py-3 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                             {categories.map((cat) => (
-                                <Link 
-                                    key={cat._id} 
-                                    to={`/cursos/${cat.slug || cat.name.toLowerCase().replace(/ /g, '-')}`}
-                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition font-medium"
-                                >
+                                <Link key={cat._id} to={`/cursos/${cat.slug || cat.name.toLowerCase()}`} className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 font-medium">
                                     {cat.name}
                                 </Link>
                             ))}
@@ -126,144 +106,117 @@ const Navbar = ({ PRIMARY_COLOR }) => {
                     </div>
                 </div>
 
-                {/* CENTRO: BARRA DE BÚSQUEDA CON PANEL DE SUGERENCIAS */}
-                <div className="flex-1 max-w-2xl relative" ref={searchRef}>
-                    <div className="relative group">
+                {/* CENTRO: BUSCADOR (Se oculta en móviles muy pequeños para dar espacio) */}
+                <div className="flex-1 max-w-2xl relative group hidden sm:block" ref={searchRef}>
+                    <div className="relative">
                         <input 
                             type="text" 
-                            placeholder="¿Qué quieres aprender hoy?"
+                            placeholder="Buscar cursos..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleSearchSubmit}
-                            onFocus={() => searchTerm.length > 1 && setShowSuggestions(true)}
-                            className="w-full bg-gray-100 border-2 border-transparent focus:bg-white focus:border-gray-200 rounded-full py-2.5 pl-10 pr-4 text-sm outline-none transition-all shadow-sm"
+                            className="w-full bg-gray-100 border-2 border-transparent focus:bg-white focus:border-gray-200 rounded-full py-2 pl-10 pr-4 text-sm outline-none transition-all"
                         />
-                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3.5 top-3" />
+                        <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
                     </div>
-
-                    {/* VENTANA FLOTANTE DE SUGERENCIAS */}
-                    {showSuggestions && (
-                        <div className="absolute top-full left-0 w-full bg-white mt-2 shadow-2xl rounded-2xl border border-gray-100 overflow-hidden z-[110] animate-in fade-in slide-in-from-top-2 duration-200">
-                            {suggestions.length > 0 ? (
-                                <>
-                                    <div className="p-3 bg-gray-50 border-b">
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Cursos sugeridos</span>
-                                    </div>
-                                    {suggestions.map((course) => (
-                                        <div 
-                                            key={course._id}
-                                            onClick={() => handleSelectSuggestion(course._id)}
-                                            className="flex items-center gap-4 p-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
-                                        >
-                                            <img 
-                                                src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${course.thumbnail}`} 
-                                                className="w-12 h-8 object-cover rounded shadow-sm bg-gray-200"
-                                                alt="" 
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-800 truncate">{course.title}</p>
-                                                <p className="text-[10px] text-gray-400 font-medium">Por {course.teacher?.name || 'Instructor'}</p>
-                                            </div>
-                                            <span className="text-xs font-black text-gray-900">${course.price}</span>
-                                        </div>
-                                    ))}
-                                    <div 
-                                        onClick={() => {
-                                            navigate(`/buscar?q=${searchTerm}`);
-                                            setShowSuggestions(false);
-                                        }}
-                                        className="p-3 text-center text-sm font-bold text-blue-600 hover:bg-blue-50 cursor-pointer transition-all border-t"
-                                    >
-                                        Ver todos los resultados para "{searchTerm}"
-                                    </div>
-                                </>
-                            ) : (
-                                searchTerm.length > 1 && (
-                                    <div className="p-6 text-center">
-                                        <p className="text-sm text-gray-400 font-medium">No hay resultados para tu búsqueda</p>
-                                    </div>
-                                )
-                            )}
+                    {/* Sugerencias (Desktop) */}
+                    {showSuggestions && suggestions.length > 0 && (
+                        <div className="absolute top-full left-0 w-full bg-white mt-2 shadow-2xl rounded-2xl border border-gray-100 overflow-hidden">
+                            {suggestions.map((course) => (
+                                <div key={course._id} onClick={() => { navigate(`/curso/${course._id}`); setShowSuggestions(false); }} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b last:border-0">
+                                    <img src={`${import.meta.env.VITE_API_URL.replace('/api', '')}${course.thumbnail}`} className="w-10 h-7 object-cover rounded bg-gray-200" alt="" />
+                                    <span className="text-sm font-bold text-gray-800 truncate">{course.title}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>
 
-                {/* DERECHA: ICONOS Y PERFIL */}
-                <div className="flex items-center space-x-3 md:space-x-6 shrink-0">
-                    <Link to="/donate" className="flex items-center text-gray-600 hover:text-red-500 transition text-sm font-medium">
-                        <HeartIcon className="h-5 w-5 text-red-400 mr-1" />
-                        <span className="hidden sm:inline">Donar</span>
+                {/* DERECHA: ICONOS */}
+                <div className="flex items-center gap-1 md:gap-4 shrink-0">
+                    <Link to="/donate" className="p-2 text-gray-600 hover:text-red-500 transition hidden md:flex items-center gap-1">
+                        <HeartIcon className="h-6 w-6 text-red-400" />
+                        <span className="text-xs font-bold">Donar</span>
                     </Link>
 
                     {user ? (
                         <>
-                            <Link to="/mi-aprendizaje" className="flex items-center text-gray-600 hover:text-gray-900 text-sm font-medium transition">
-                                <AcademicCapIcon className="h-6 w-6 mr-1" />
-                                <span className="hidden md:inline">Mi aprendizaje</span>
+                            <Link to="/mi-aprendizaje" className="p-2 text-gray-600 hover:text-gray-900 transition hidden md:block">
+                                <AcademicCapIcon className="h-6 w-6" />
                             </Link>
 
-                            <Link to="/cart" className="relative text-gray-600 hover:text-gray-900 p-1">
+                            <Link to="/cart" className="relative p-2 text-gray-600 hover:text-gray-900">
                                 <ShoppingBagIcon className="h-6 w-6" />
                                 {cartItems.length > 0 && (
-                                  <span className="absolute top-0 right-0 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
-                                      {cartItems.length}
-                                  </span>
+                                    <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                                        {cartItems.length}
+                                    </span>
                                 )}
                             </Link>
 
-                            <div className="relative">
-                                <button 
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                                    className="flex items-center focus:outline-none hover:opacity-90 transition p-0.5 rounded-full border-2 border-transparent hover:border-gray-200"
-                                >
-                                    {user.profilePicture ? (
-                                        <img src={user.profilePicture} alt="Perfil" className="h-9 w-9 rounded-full object-cover shadow-sm bg-gray-100" />
-                                    ) : (
-                                        <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-md" style={{ backgroundColor: PRIMARY_COLOR }}>
-                                            {getInitials(user?.name)}
-                                        </div>
-                                    )}
-                                    <ChevronDownIcon className="h-3 w-3 ml-1 text-gray-400" />
-                                </button>
-
-                                {isMenuOpen && (
-                                    <>
-                                        <div className="fixed inset-0 z-[-1]" onClick={() => setIsMenuOpen(false)}></div>
-                                        <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-[100]">
-                                            <div className="px-4 py-3 border-b border-gray-100 flex items-center space-x-3">
-                                                <div className="shrink-0">
-                                                    <img src={user.profilePicture || "https://via.placeholder.com/150"} className="h-10 w-10 rounded-full object-cover bg-gray-50" alt="Avatar" />
-                                                </div>
-                                                <div className="overflow-hidden">
-                                                    <p className="text-sm font-bold truncate">{user?.name}</p>
-                                                    <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
-                                                </div>
-                                            </div>
-
-                                            <div className="py-2">
-                                                {(user.role === 'admin' || user.role === 'teacher') && (
-                                                    <Link to="/admin/subir-curso" className="flex items-center px-4 py-2 hover:bg-blue-50 text-sm font-bold transition-colors" style={{ color: PRIMARY_COLOR }} onClick={() => setIsMenuOpen(false)}>
-                                                        <PlusCircleIcon className="h-5 w-5 mr-2" /> Subir Cursos
-                                                    </Link>
-                                                )}
-                                                <Link to="/mi-aprendizaje" className="block px-4 py-2 hover:bg-gray-50 text-sm text-gray-700" onClick={() => setIsMenuOpen(false)}>Mi aprendizaje</Link>
-                                                <Link to="/editar-perfil" className="block px-4 py-2 hover:bg-gray-50 text-sm text-gray-700" onClick={() => setIsMenuOpen(false)}>Configuración</Link>
-                                                <hr className="my-2 border-gray-100" />
-                                                <button onClick={() => { logout(); setIsMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-bold transition-colors">Cerrar sesión</button>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
+                            <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-1 p-1 rounded-full border border-transparent hover:border-gray-200">
+                                <div className="h-8 w-8 md:h-10 md:w-10 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm" style={{ backgroundColor: PRIMARY_COLOR }}>
+                                    {getInitials(user?.name)}
+                                </div>
+                            </button>
                         </>
                     ) : (
-                        <div className="flex items-center space-x-3">
-                            <Link to="/login" className="text-sm font-medium text-gray-700 hover:text-gray-900 transition">Iniciar sesión</Link>
-                            <Link to="/register" className="text-white px-5 py-2 rounded-lg text-sm font-bold hover:shadow-md transition shadow-sm" style={{ backgroundColor: PRIMARY_COLOR }}>Únete gratis</Link>
+                        <div className="flex items-center gap-2">
+                            <Link to="/login" className="text-sm font-bold text-gray-700 px-3 py-2 hidden xs:block">Entrar</Link>
+                            <Link to="/register" className="text-white px-4 py-2 rounded-full text-xs md:text-sm font-black transition" style={{ backgroundColor: PRIMARY_COLOR }}>Registro</Link>
                         </div>
                     )}
                 </div>
             </div>
+
+            {/* --- MOBILE SIDEBAR OVERLAY --- */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-[110] lg:hidden">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+                    <div className="absolute top-0 left-0 w-3/4 max-w-sm h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-300">
+                        <div className="p-4 border-b flex justify-between items-center">
+                            <span className="font-black text-gray-900">MENÚ</span>
+                            <XMarkIcon className="h-6 w-6 text-gray-500" onClick={() => setIsMobileMenuOpen(false)} />
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                            {/* Buscador móvil */}
+                            <div className="relative sm:hidden">
+                                <input 
+                                    type="text" 
+                                    placeholder="Buscar..."
+                                    className="w-full bg-gray-100 rounded-lg py-3 pl-10 pr-4 text-sm outline-none"
+                                    onKeyDown={handleSearchSubmit}
+                                />
+                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-3" />
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Navegación</p>
+                                <Link to="/mi-aprendizaje" className="flex items-center gap-3 font-bold text-gray-700" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <AcademicCapIcon className="h-5 w-5" /> Mi Aprendizaje
+                                </Link>
+                                <Link to="/donate" className="flex items-center gap-3 font-bold text-red-500" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <HeartIcon className="h-5 w-5" /> Donar a la causa
+                                </Link>
+                            </div>
+
+                            <div className="space-y-4 pt-4 border-t">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Categorías</p>
+                                {categories.map(cat => (
+                                    <Link key={cat._id} to={`/cursos/${cat.slug || cat.name}`} className="block font-medium text-gray-600" onClick={() => setIsMobileMenuOpen(false)}>
+                                        {cat.name}
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                        {user && (
+                            <div className="p-4 border-t bg-gray-50">
+                                <button onClick={() => { logout(); setIsMobileMenuOpen(false); }} className="w-full py-3 bg-red-50 text-red-600 rounded-xl font-bold">Cerrar Sesión</button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </nav>
     );
 };
